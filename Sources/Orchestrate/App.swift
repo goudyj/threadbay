@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         appState.onShowWindow = { [weak self] in self?.showMainWindow() }
+        appState.sessionManager.setUp()
         NSApp.setActivationPolicy(.accessory)
         showMainWindow()
     }
@@ -32,6 +33,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
+    /// Decision n°4: warn when agents are still running, then kill them cleanly.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let running = appState.sessionManager.runningCount
+        if running > 0 {
+            let alert = NSAlert()
+            alert.messageText = "Quitter Orchestrate ?"
+            alert.informativeText =
+                "\(running) agent(s) actif(s) seront arrêtés."
+            alert.addButton(withTitle: "Quitter")
+            alert.addButton(withTitle: "Annuler")
+            NSApp.activate(ignoringOtherApps: true)
+            guard alert.runModal() == .alertFirstButtonReturn else {
+                return .terminateCancel
+            }
+        }
+        appState.sessionManager.tearDown()
+        return .terminateNow
+    }
+
     func showMainWindow() {
         if window == nil {
             let hosting = NSHostingController(
@@ -39,7 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let window = NSWindow(contentViewController: hosting)
             window.title = "Orchestrate"
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-            window.setContentSize(NSSize(width: 860, height: 560))
+            window.setContentSize(NSSize(width: 1060, height: 640))
             window.isReleasedWhenClosed = false
             window.delegate = self
             window.center()

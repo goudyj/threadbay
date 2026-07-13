@@ -9,15 +9,20 @@ import SwiftUI
 final class AppState: ObservableObject {
     @Published var settings = Settings()
     @Published var spaces: [TrackedSpace] = []
+    @Published var agents: [AgentDefinition] = []
     @Published var errorMessage: String?
     @Published var isBusy = false
 
     /// Set by the menu bar to ask the window to present the create sheet.
     @Published var pendingNewSpace = false
     @Published var pendingSettings = false
+    /// Asks the window to select a space (set when launching an agent).
+    @Published var pendingSelectSpace: String?
 
     /// Installed by the app delegate; brings the main window to the front.
     var onShowWindow: (@MainActor () -> Void)?
+
+    let sessionManager = SessionManager()
 
     func showMainWindow() {
         onShowWindow?()
@@ -29,6 +34,13 @@ final class AppState: ObservableObject {
 
     init() {
         reload()
+        sessionManager.onError = { [weak self] message in
+            self?.errorMessage = message
+        }
+        sessionManager.onFocusSession = { [weak self] session in
+            self?.pendingSelectSpace = session.space.name
+            self?.showMainWindow()
+        }
     }
 
     struct ProjectGroup: Identifiable {
@@ -48,6 +60,7 @@ final class AppState: ObservableObject {
         do {
             settings = try Settings.load()
             spaces = try SpaceStore.load().spaces
+            agents = try AgentLibrary.load().agents
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -88,6 +101,8 @@ final class AppState: ObservableObject {
     }
 
     func delete(_ space: TrackedSpace) {
+        // Agents must not outlive the folder they run in.
+        sessionManager.closeSessions(for: space)
         let service = spaceService
         Task {
             do {
@@ -96,6 +111,22 @@ final class AppState: ObservableObject {
             } catch {
                 errorMessage = error.localizedDescription
             }
+        }
+    }
+
+    // MARK: - Agents
+
+    func launchAgent(_ agent: AgentDefinition, in space: TrackedSpace) {
+        sessionManager.launch(agent: agent, in: space)
+        pendingSelectSpace = space.name
+        showMainWindow()
+    }
+
+    func persistAgents() {
+        do {
+            try AgentLibrary(agents: agents).save()
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 

@@ -14,7 +14,13 @@ struct MenuBarView: View {
             ForEach(app.groups) { group in
                 Section(group.id) {
                     ForEach(group.spaces) { space in
-                        Menu(space.name) {
+                        Menu(menuTitle(for: space)) {
+                            ForEach(app.agents) { agent in
+                                Button("Lancer \(agent.name)") {
+                                    app.launchAgent(agent, in: space)
+                                }
+                            }
+                            Divider()
                             ForEach(Editor.allCases) { editor in
                                 Button("Ouvrir dans \(editor.displayName)") {
                                     app.open(editor, space)
@@ -47,5 +53,13 @@ struct MenuBarView: View {
 
         Button("Quitter Orchestrate") { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")
+    }
+
+    /// Suffixes the space name with its number of active agents.
+    private func menuTitle(for space: TrackedSpace) -> String {
+        let running = app.sessionManager.runningCount(for: space)
+        guard running > 0 else { return space.name }
+        let alert = app.sessionManager.needsAttention(space) ? " ⚠" : ""
+        return "\(space.name) — \(running) agent(s)\(alert)"
     }
 }

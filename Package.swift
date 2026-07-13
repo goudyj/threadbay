@@ -6,6 +6,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     dependencies: [
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.1.0"),
+        .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", from: "1.2.0"),
     ],
     targets: [
         .target(
@@ -14,7 +15,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "Orchestrate",
-            dependencies: ["OrchestrateCore"]
+            dependencies: ["OrchestrateCore", "SwiftTerm"]
         ),
         .testTarget(
             name: "OrchestrateCoreTests",

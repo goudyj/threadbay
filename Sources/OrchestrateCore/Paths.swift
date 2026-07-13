@@ -18,6 +18,30 @@ public enum Paths {
             .appendingPathComponent("spaces.yaml", isDirectory: false)
     }
 
+    /// `~/Library/Application Support/com.jlex.orchestrate/agents.yaml`
+    /// App-only agent definitions — deliberately a separate file so the Rust CLI
+    /// never rewrites (and drops) it when saving `settings.yaml`.
+    public static var agentsFile: URL {
+        appDirectory.appendingPathComponent("agents.yaml", isDirectory: false)
+    }
+
+    /// `~/Library/Application Support/com.jlex.orchestrate/orchestrate.sock`
+    /// Unix domain socket the app listens on for agent hook events.
+    public static var eventSocket: URL {
+        appDirectory.appendingPathComponent("orchestrate.sock", isDirectory: false)
+    }
+
+    /// `~/Library/Application Support/com.jlex.orchestrate/orchestrate-notify.sh`
+    /// Notifier script injected into agent hooks; forwards events to the socket.
+    public static var notifierScript: URL {
+        appDirectory.appendingPathComponent("orchestrate-notify.sh", isDirectory: false)
+    }
+
+    /// `~/Library/Application Support/com.jlex.orchestrate/`
+    public static var appDirectory: URL {
+        applicationSupport.appendingPathComponent("com.jlex.orchestrate", isDirectory: true)
+    }
+
     public static var home: URL {
         URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
     }
