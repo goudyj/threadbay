@@ -62,7 +62,12 @@ public final class Shell: @unchecked Sendable {
     /// Runs `tool args…` in `cwd`, capturing output. Reads stdout/stderr on
     /// background threads to avoid pipe-buffer deadlocks.
     @discardableResult
-    public func run(_ tool: String, _ args: [String], cwd: URL? = nil) throws -> CommandResult {
+    public func run(
+        _ tool: String,
+        _ args: [String],
+        cwd: URL? = nil,
+        input: String? = nil
+    ) throws -> CommandResult {
         let executable = try resolve(tool)
 
         let process = Process()
@@ -80,8 +85,14 @@ public final class Shell: @unchecked Sendable {
         let errPipe = Pipe()
         process.standardOutput = outPipe
         process.standardError = errPipe
+        let inputPipe = input == nil ? nil : Pipe()
+        process.standardInput = inputPipe
 
         try process.run()
+        if let input, let inputPipe {
+            inputPipe.fileHandleForWriting.write(Data(input.utf8))
+            try? inputPipe.fileHandleForWriting.close()
+        }
 
         // Read stderr on a background queue while stdout is drained on this
         // thread, so neither pipe buffer can fill and deadlock the child.
@@ -101,8 +112,13 @@ public final class Shell: @unchecked Sendable {
 
     /// Like `run`, but throws `ShellError.commandFailed` on a non-zero exit.
     @discardableResult
-    public func check(_ tool: String, _ args: [String], cwd: URL? = nil) throws -> String {
-        let result = try run(tool, args, cwd: cwd)
+    public func check(
+        _ tool: String,
+        _ args: [String],
+        cwd: URL? = nil,
+        input: String? = nil
+    ) throws -> String {
+        let result = try run(tool, args, cwd: cwd, input: input)
         guard result.isSuccess else {
             throw ShellError.commandFailed(
                 command: "\(tool) \(args.joined(separator: " "))", stderr: result.stderr)

@@ -74,6 +74,9 @@ struct SettingsView: View {
                     Text(app.localized("settings.agents")).font(.headline)
                     AgentsEditor()
 
+                    Text(app.localized("settings.commit_generators")).font(.headline)
+                    CommitGeneratorsEditor()
+
                     Text(app.localized("settings.shortcuts")).font(.headline)
                     VStack(spacing: 8) {
                         ForEach(AppShortcutAction.allCases) { action in
@@ -167,6 +170,68 @@ struct SettingsView: View {
         if panel.runModal() == .OK, let url = panel.url {
             app.addProject(path: url)
         }
+    }
+}
+
+private struct CommitGeneratorsEditor: View {
+    @EnvironmentObject var app: AppState
+
+    var body: some View {
+        List {
+            ForEach(app.commitGenerators.indices, id: \.self) { index in
+                HStack(spacing: 8) {
+                    TextField(
+                        app.localized("settings.generator_name"),
+                        text: binding(index).name)
+                        .frame(width: 130)
+                    TextField(
+                        app.localized("settings.generator_command"),
+                        text: binding(index).command)
+                        .font(.body.monospaced())
+                    Button(role: .destructive) {
+                        app.commitGenerators.remove(at: index)
+                        app.persistAgents()
+                    } label: {
+                        Label(app.localized("common.remove"), systemImage: "trash")
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                }
+            }
+        }
+        .frame(minHeight: 100)
+
+        HStack {
+            Button(app.localized("settings.add_generator")) {
+                app.commitGenerators.append(
+                    CommitGeneratorDefinition(name: uniqueName(), command: ""))
+                app.persistAgents()
+            }
+            Spacer()
+            Text(app.localized("settings.generator_help"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func binding(_ index: Int) -> Binding<CommitGeneratorDefinition> {
+        Binding(
+            get: { app.commitGenerators[index] },
+            set: {
+                app.commitGenerators[index] = $0
+                app.persistAgents()
+            })
+    }
+
+    private func uniqueName() -> String {
+        let baseName = app.localized("settings.new_generator")
+        var name = baseName
+        var n = 2
+        while app.commitGenerators.contains(where: { $0.name == name }) {
+            name = "\(baseName) \(n)"
+            n += 1
+        }
+        return name
     }
 }
 

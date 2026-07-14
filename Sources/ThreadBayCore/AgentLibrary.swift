@@ -33,13 +33,44 @@ public struct AgentDefinition: Codable, Identifiable, Hashable, Sendable {
     }
 }
 
+/// A non-interactive command that reads commit context from stdin and writes a
+/// proposed commit message to stdout.
+public struct CommitGeneratorDefinition: Codable, Identifiable, Hashable, Sendable {
+    public var name: String
+    public var command: String
+
+    public var id: String { name }
+
+    public init(name: String, command: String) {
+        self.name = name
+        self.command = command
+    }
+}
+
 /// Reads and writes `agents.yaml`, the app-only agent catalogue. Kept out of
 /// `settings.yaml` because the Rust CLI drops unknown keys when it rewrites it.
 public struct AgentLibrary: Codable, Sendable {
     public var agents: [AgentDefinition]
+    public var commitGenerators: [CommitGeneratorDefinition]
 
-    public init(agents: [AgentDefinition]) {
+    public init(
+        agents: [AgentDefinition],
+        commitGenerators: [CommitGeneratorDefinition] = []
+    ) {
         self.agents = agents
+        self.commitGenerators = commitGenerators
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case agents
+        case commitGenerators = "commit_generators"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        agents = try c.decodeIfPresent([AgentDefinition].self, forKey: .agents) ?? []
+        commitGenerators = try c.decodeIfPresent(
+            [CommitGeneratorDefinition].self, forKey: .commitGenerators) ?? []
     }
 
     /// Agents shipped by default on first launch.
@@ -75,10 +106,14 @@ public enum CommandTemplate {
         "{space_path}", "{branch}", "{task_value}", "{name}", "{project}",
     ]
 
-    public static func render(_ template: String, space: TrackedSpace) -> String {
+    public static func render(
+        _ template: String,
+        space: TrackedSpace,
+        currentBranch: String? = nil
+    ) -> String {
         template
             .replacingOccurrences(of: "{space_path}", with: space.destination)
-            .replacingOccurrences(of: "{branch}", with: space.taskValue)
+            .replacingOccurrences(of: "{branch}", with: currentBranch ?? space.taskValue)
             .replacingOccurrences(of: "{task_value}", with: space.taskValue)
             .replacingOccurrences(of: "{name}", with: space.name)
             .replacingOccurrences(of: "{project}", with: space.projectName)

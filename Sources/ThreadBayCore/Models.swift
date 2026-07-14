@@ -64,6 +64,18 @@ public struct GitBranch: Identifiable, Hashable, Sendable {
     }
 }
 
+public struct GitRepositoryState: Equatable, Sendable {
+    public let currentBranch: String?
+    public let baseBranch: GitBranch?
+    public let hasChanges: Bool
+
+    public init(currentBranch: String?, baseBranch: GitBranch?, hasChanges: Bool) {
+        self.currentBranch = currentBranch
+        self.baseBranch = baseBranch
+        self.hasChanges = hasChanges
+    }
+}
+
 /// The space creation flows exposed by the macOS app.
 public enum SpaceCreation: Hashable, Sendable {
     case feature(branchName: String, base: GitBranch)
@@ -95,9 +107,13 @@ public struct TrackedSpace: Codable, Identifiable, Hashable, Sendable {
     public var taskValue: String
 
     public var id: String { name }
+    public var generatedTitle: String {
+        guard let separator = name.range(of: "__") else { return name }
+        return String(name[separator.upperBound...])
+    }
     public var displayTitle: String {
         let trimmed = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmed.isEmpty ? name : trimmed
+        return trimmed.isEmpty ? generatedTitle : trimmed
     }
 
     public init(

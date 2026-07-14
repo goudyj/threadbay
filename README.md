@@ -5,10 +5,12 @@ ThreadBay is a macOS app for working on multiple Git branches in parallel and ru
 ## How It Works
 
 1. Add a project from the settings by selecting its local Git repository.
-2. Create a **space** from a new branch, an existing branch, or a GitHub pull request.
-3. ThreadBay creates an independent clone next to the source repository, then checks out the selected branch. Each task has its own directory and does not affect other spaces.
+2. Create a **space** from a new branch, an existing branch, or a GitHub pull request. You can give it an optional display name; otherwise ThreadBay assigns a stable two-word name such as `cosmic-otter`.
+3. ThreadBay creates an independent clone next to the source repository, then checks out the selected branch. Each task has its own directory and does not affect other spaces. The current branch can later be changed without renaming the space.
 4. From that space, launch Claude Code, Codex, a shell, or a custom command in the integrated terminal. Multiple sessions can run at the same time.
 5. Open the directory in VS Code, Zed, Cursor, or Finder. Deleting a space stops its sessions, removes its directory, and removes it from ThreadBay.
+
+Each Git space also exposes actions in the sidebar to create a commit, generate a commit message with Claude, Codex, or a custom command, optionally push or merge it, and switch branches with a searchable picker. Merges run in a temporary worktree and never change the configured source repository or the branch checked out in the space.
 
 The app remains accessible from the menu bar and can send a notification when an agent finishes a turn or waits for an action. Projects, spaces, and agents are stored in local YAML files:
 

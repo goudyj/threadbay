@@ -65,6 +65,7 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
     let startedAt = Date()
     let terminalView: SessionTerminalView
     private let notifierPath: String?
+    private let currentBranch: String?
 
     @Published private(set) var state: State = .starting
     @Published var attention: Attention = .none
@@ -80,11 +81,13 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
     init(
         space: TrackedSpace,
         agent: AgentDefinition,
+        currentBranch: String? = nil,
         notifierPath: String?,
         theme: TerminalTheme = .system
     ) {
         self.space = space
         self.agent = agent
+        self.currentBranch = currentBranch
         self.notifierPath = notifierPath
         self.terminalView = SessionTerminalView(
             frame: NSRect(x: 0, y: 0, width: 800, height: 500))
@@ -142,7 +145,8 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
     /// (no PATH guessing); `exec` keeps the agent as the PTY's direct child so
     /// signals and exit codes are its own. Empty command = interactive shell.
     private var launchArgs: [String] {
-        var command = CommandTemplate.render(agent.command, space: space)
+        var command = CommandTemplate.render(
+            agent.command, space: space, currentBranch: currentBranch)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !command.isEmpty else { return ["-il"] }
         if agent.kind == .codex, let notifierPath {

@@ -27,7 +27,7 @@ struct NewSpaceView: View {
     @State private var projectName = ""
     @State private var mode: CreationMode = .feature
     @State private var branchName = ""
-    @State private var spaceName = ""
+    @State private var displayName = ""
     @State private var isGitProject: Bool?
     @State private var selectedBaseID = ""
     @State private var selectedBranchID = ""
@@ -78,7 +78,7 @@ struct NewSpaceView: View {
         case .pullRequest:
             return selectedPullRequestNumber != nil
         case .folder:
-            return !spaceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            return true
         }
     }
 
@@ -96,6 +96,13 @@ struct NewSpaceView: View {
                             ForEach(app.settings.projects) { Text($0.name).tag($0.name) }
                         }
                         .labelsHidden()
+                    }
+
+                    fieldRow(app.localized("new_space.display_name")) {
+                        TextField(
+                            "", text: $displayName,
+                            prompt: Text(app.localized("new_space.display_name_placeholder")))
+                            .labelsHidden()
                     }
 
                     if isGitProject == true {
@@ -198,12 +205,7 @@ struct NewSpaceView: View {
         case .pullRequest:
             pullRequestSelector
         case .folder:
-            fieldRow(app.localized("new_space.space_name")) {
-                TextField(
-                    "", text: $spaceName,
-                    prompt: Text(app.localized("new_space.space_name_placeholder")))
-                .labelsHidden()
-            }
+            EmptyView()
         }
     }
 
@@ -449,7 +451,6 @@ struct NewSpaceView: View {
             branches = []
             selectedBaseID = ""
             selectedBranchID = ""
-            spaceName = project.name
         }
     }
 
@@ -547,10 +548,12 @@ struct NewSpaceView: View {
             guard let number = selectedPullRequestNumber else { return }
             creation = .pullRequest(number)
         case .folder:
-            creation = .folder(name: spaceName)
+            creation = .folder(name: project.name)
         }
 
-        if await app.createSpace(project: project, creation: creation) {
+        if await app.createSpace(
+            project: project, creation: creation, displayName: displayName)
+        {
             dismiss()
         }
     }

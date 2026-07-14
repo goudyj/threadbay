@@ -2,6 +2,12 @@ import AppKit
 import ThreadBayCore
 import SwiftUI
 
+private struct CommitRequest: Identifiable {
+    let id = UUID()
+    let space: TrackedSpace
+    let mode: CommitView.Mode
+}
+
 /// Main window: spaces sidebar (with agent badges) + detail area showing the
 /// selected space and its embedded agent terminals. Also hosts the create and
 /// settings sheets, and drives the Dock/activation policy while visible.
@@ -13,6 +19,8 @@ struct MainWindow: View {
     @State private var showManagement = false
     @State private var renameSpace: TrackedSpace?
     @State private var renameText = ""
+    @State private var branchSwitchSpace: TrackedSpace?
+    @State private var commitRequest: CommitRequest?
 
     private var selectedSpace: TrackedSpace? {
         app.spaces.first { $0.name == app.selectedSpaceName }
@@ -29,7 +37,14 @@ struct MainWindow: View {
                     ForEach(app.groups) { group in
                         Section(group.id) {
                             ForEach(group.spaces) { space in
-                                SidebarSpaceRow(space: space, manager: app.sessionManager)
+                                SidebarSpaceRow(
+                                    space: space,
+                                    manager: app.sessionManager,
+                                    onCommit: { presentCommit(for: space) },
+                                    onAutomaticCommit: {
+                                        presentAutomaticCommit($0, name: $1, for: space)
+                                    },
+                                    onSwitchBranch: { branchSwitchSpace = space })
                                     .tag(space.name)
                                     .contextMenu {
                                         Button {
@@ -39,6 +54,47 @@ struct MainWindow: View {
                                             Label(
                                                 app.localized("management.rename"),
                                                 systemImage: "pencil")
+                                        }
+                                        if space.taskType != "folder" {
+                                            Divider()
+                                            Button {
+                                                presentCommit(for: space)
+                                            } label: {
+                                                Label(
+                                                    app.localized("git.create_commit"),
+                                                    systemImage: "checkmark.circle")
+                                            }
+                                            Menu(app.localized("git.automatic_commit")) {
+                                                Button("Claude") {
+                                                    presentAutomaticCommit(
+                                                        .claude, name: "Claude", for: space)
+                                                }
+                                                Button("Codex") {
+                                                    presentAutomaticCommit(
+                                                        .codex, name: "Codex", for: space)
+                                                }
+                                                if !app.commitGenerators.isEmpty {
+                                                    Divider()
+                                                    ForEach(app.commitGenerators) { generator in
+                                                        Button(generator.name) {
+                                                            presentAutomaticCommit(
+                                                                .custom(command: generator.command),
+                                                                name: generator.name,
+                                                                for: space)
+                                                        }
+                                                        .disabled(generator.command
+                                                            .trimmingCharacters(
+                                                                in: .whitespacesAndNewlines).isEmpty)
+                                                    }
+                                                }
+                                            }
+                                            Button {
+                                                branchSwitchSpace = space
+                                            } label: {
+                                                Label(
+                                                    app.localized("git.switch_branch"),
+                                                    systemImage: "arrow.triangle.branch")
+                                            }
                                         }
                                     }
                             }
@@ -54,6 +110,12 @@ struct MainWindow: View {
         .sheet(isPresented: $showNew) { NewSpaceView().environmentObject(app) }
         .sheet(isPresented: $showManagement) { SpaceManagementView().environmentObject(app) }
         .sheet(isPresented: $showSettings) { SettingsView().environmentObject(app) }
+        .sheet(item: $branchSwitchSpace) { space in
+            BranchSwitcherView(space: space).environmentObject(app)
+        }
+        .sheet(item: $commitRequest) { request in
+            CommitView(space: request.space, mode: request.mode).environmentObject(app)
+        }
         .onAppear {
             app.reload()
             applyPending()
@@ -61,10 +123,19 @@ struct MainWindow: View {
         .onChange(of: app.pendingNewSpace) { _, _ in applyPending() }
         .onChange(of: app.pendingSettings) { _, _ in applyPending() }
         .onChange(of: app.pendingSelectSpace) { _, _ in applyPending() }
+        .onChange(of: app.selectedSpaceName) { _, name in
+            guard let space = app.spaces.first(where: { $0.name == name }) else { return }
+            Task { await app.refreshGitState(for: space) }
+        }
         .alert(app.localized("main.error"), isPresented: errorPresented) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(app.errorMessage ?? "")
+        }
+        .alert(app.localized("main.warning"), isPresented: noticePresented) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(app.noticeMessage ?? "")
         }
         .alert(
             app.localized("management.rename_title", renameSpace?.displayTitle ?? ""),
@@ -131,6 +202,19 @@ struct MainWindow: View {
         }
     }
 
+    private func presentCommit(for space: TrackedSpace) {
+        commitRequest = CommitRequest(space: space, mode: .manual)
+    }
+
+    private func presentAutomaticCommit(
+        _ provider: CommitMessageProvider,
+        name: String,
+        for space: TrackedSpace
+    ) {
+        commitRequest = CommitRequest(
+            space: space, mode: .automatic(name: name, provider: provider))
+    }
+
     @ViewBuilder
     private var detail: some View {
         if let space = selectedSpace {
@@ -159,6 +243,12 @@ struct MainWindow: View {
             set: { if !$0 { app.errorMessage = nil } })
     }
 
+    private var noticePresented: Binding<Bool> {
+        Binding(
+            get: { app.noticeMessage != nil },
+            set: { if !$0 { app.noticeMessage = nil } })
+    }
+
     private var renamePresented: Binding<Bool> {
         Binding(
             get: { renameSpace != nil },
@@ -185,13 +275,24 @@ private struct SidebarSpaceRow: View {
     @EnvironmentObject var app: AppState
     let space: TrackedSpace
     @ObservedObject var manager: SessionManager
+    let onCommit: () -> Void
+    let onAutomaticCommit: (CommitMessageProvider, String) -> Void
+    let onSwitchBranch: () -> Void
 
     var body: some View {
         HStack {
-            Label(
-                space.displayTitle,
-                systemImage: space.taskType == "folder" ? "folder" : "arrow.triangle.branch")
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 1) {
+                Label(
+                    space.displayTitle,
+                    systemImage: space.taskType == "folder" ? "folder" : "shippingbox")
+                    .lineLimit(1)
+                if let branch = app.currentBranch(for: space) {
+                    Label(branch, systemImage: "arrow.triangle.branch")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
             Spacer()
             let running = manager.runningCount(for: space)
             if running > 0 {
@@ -202,6 +303,33 @@ private struct SidebarSpaceRow: View {
                     .background(Capsule().fill(badgeColor))
                     .foregroundStyle(.white)
                     .help(badgeHelp(running: running))
+            }
+            if space.taskType != "folder" {
+                Menu {
+                    Button(app.localized("git.create_commit"), action: onCommit)
+                    Menu(app.localized("git.automatic_commit")) {
+                        Button("Claude") { onAutomaticCommit(.claude, "Claude") }
+                        Button("Codex") { onAutomaticCommit(.codex, "Codex") }
+                        if !app.commitGenerators.isEmpty {
+                            Divider()
+                            ForEach(app.commitGenerators) { generator in
+                                Button(generator.name) {
+                                    onAutomaticCommit(
+                                        .custom(command: generator.command), generator.name)
+                                }
+                                .disabled(generator.command
+                                    .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            }
+                        }
+                    }
+                    Divider()
+                    Button(app.localized("git.switch_branch"), action: onSwitchBranch)
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
             }
         }
     }
@@ -258,7 +386,9 @@ private struct SpaceDetail: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(space.displayTitle).font(.headline)
                 Label(
-                    space.taskType == "folder" ? app.localized("main.folder_copy") : space.taskValue,
+                    space.taskType == "folder"
+                        ? app.localized("main.folder_copy")
+                        : app.currentBranch(for: space) ?? app.localized("git.unknown_branch"),
                     systemImage: space.taskType == "folder" ? "folder" : "arrow.triangle.branch")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -302,7 +432,9 @@ struct SpaceRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(space.displayTitle).font(.headline)
                 Label(
-                    space.taskType == "folder" ? app.localized("main.folder_copy") : space.taskValue,
+                    space.taskType == "folder"
+                        ? app.localized("main.folder_copy")
+                        : app.currentBranch(for: space) ?? app.localized("git.unknown_branch"),
                     systemImage: space.taskType == "folder" ? "folder" : "arrow.triangle.branch")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

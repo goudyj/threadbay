@@ -37,6 +37,19 @@ final class AgentLibraryTests: XCTestCase {
         XCTAssertEqual(reloaded.agents.last, AgentDefinition(name: "Dev server", command: "npm run dev"))
         XCTAssertEqual(reloaded.agents.last?.kind, .custom)
     }
+
+    func testRoundTripsCustomCommitGenerator() throws {
+        let url = try makeTempDir().appendingPathComponent("agents.yaml")
+        let library = AgentLibrary(
+            agents: AgentLibrary.defaults.agents,
+            commitGenerators: [
+                CommitGeneratorDefinition(name: "Local", command: "generate-commit"),
+            ])
+        try library.save(url: url)
+
+        let reloaded = try AgentLibrary.load(url: url)
+        XCTAssertEqual(reloaded.commitGenerators, library.commitGenerators)
+    }
 }
 
 final class CommandTemplateTests: XCTestCase {
@@ -53,6 +66,14 @@ final class CommandTemplateTests: XCTestCase {
     func testShellQuoting() {
         XCTAssertEqual("plain".shellQuoted, "'plain'")
         XCTAssertEqual("it's".shellQuoted, "'it'\\''s'")
+    }
+
+    func testCurrentBranchOverridesCreationTaskForBranchPlaceholder() {
+        let rendered = CommandTemplate.render(
+            "{branch} ({task_value})",
+            space: sampleSpace,
+            currentBranch: "release/2.0")
+        XCTAssertEqual(rendered, "release/2.0 (feat/terminal)")
     }
 }
 

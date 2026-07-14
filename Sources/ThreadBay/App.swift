@@ -49,6 +49,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
+    func applicationDidBecomeActive(_ notification: Notification) {
+        Task { await appState.refreshGitStates() }
+    }
+
     /// Decision n°4: warn when agents are still running, then kill them cleanly.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let running = appState.sessionManager.runningCount

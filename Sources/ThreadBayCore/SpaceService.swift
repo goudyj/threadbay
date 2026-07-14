@@ -39,15 +39,18 @@ public struct SpaceService: Sendable {
     public func create(
         project: Project,
         creation: SpaceCreation,
+        displayName: String? = nil,
         spacesURL: URL = Paths.spacesFile
     ) throws -> TrackedSpace {
         let creation = try normalized(creation)
-        let metadata = creationMetadata(project: project, creation: creation)
+        let metadata = creationMetadata(creation)
 
         let source = URL(fileURLWithPath: project.path)
+        let baseBranch = baseBranch(for: creation, in: source)
         let localUpstream = try remoteUpstream(for: creation, in: source)
         let parent = source.deletingLastPathComponent()
-        let finalName = Naming.ensureUniqueName(parent: parent, base: metadata.baseName)
+        let finalName = Naming.ensureUniqueName(
+            parent: parent, base: Naming.randomSpaceName(project: project.name))
         let dest = parent.appendingPathComponent(finalName)
 
         do {
@@ -61,6 +64,11 @@ public struct SpaceService: Sendable {
                 try syncRemotes(source: source, dest: dest)
                 try copyFiles(project.filesToInclude, into: dest)
                 try apply(creation, localUpstream: localUpstream, in: dest)
+                if let integrationBranch = baseBranch ?? pullRequestBaseBranch(
+                    for: creation, in: dest)
+                {
+                    try GitService(shell: shell).setBaseBranch(integrationBranch, repo: dest)
+                }
             }
         } catch {
             try? FileManager.default.removeItem(at: dest)
@@ -71,6 +79,7 @@ public struct SpaceService: Sendable {
             projectName: project.name,
             destination: dest.path,
             name: finalName,
+            displayName: normalizedDisplayName(displayName),
             createdAt: Self.timestamp(),
             taskType: metadata.taskType,
             taskValue: metadata.taskValue)
@@ -127,31 +136,55 @@ public struct SpaceService: Sendable {
     }
 
     private func creationMetadata(
-        project: Project, creation: SpaceCreation
-    ) -> (baseName: String, taskType: String, taskValue: String) {
+        _ creation: SpaceCreation
+    ) -> (taskType: String, taskValue: String) {
         switch creation {
         case .feature(let branchName, _):
-            return (
-                Naming.branchSpaceName(project: project.name, branch: branchName),
-                "feature",
-                branchName)
+            return ("feature", branchName)
         case .existingBranch(let branch):
-            return (
-                Naming.branchSpaceName(project: project.name, branch: branch.name),
-                "review",
-                "branch-\(branch.name)")
+            return ("review", "branch-\(branch.name)")
         case .pullRequest(let number):
-            return (
-                Naming.pullRequestSpaceName(project: project.name, number: number),
-                "review",
-                "pr-\(number)")
+            return ("review", "pr-\(number)")
         case .folder(let name):
-            let slug = Naming.slugify(name)
-            return (
-                "\(project.name)__\(slug.isEmpty ? "space" : slug)",
-                "folder",
-                name)
+            return ("folder", name)
         }
+    }
+
+    private func baseBranch(for creation: SpaceCreation, in source: URL) -> GitBranch? {
+        switch creation {
+        case .feature(_, let base):
+            return base
+        case .existingBranch:
+            guard let name = GitService(shell: shell).currentBranch(repo: source) else { return nil }
+            return GitBranch(name: name, location: .local)
+        case .pullRequest, .folder:
+            return nil
+        }
+    }
+
+    private func normalizedDisplayName(_ displayName: String?) -> String? {
+        let trimmed = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func pullRequestBaseBranch(
+        for creation: SpaceCreation,
+        in repo: URL
+    ) -> GitBranch? {
+        guard case .pullRequest(let number) = creation,
+            let name = try? shell.check(
+                "gh",
+                ["pr", "view", String(number), "--json", "baseRefName", "--jq", ".baseRefName"],
+                cwd: repo),
+            !name.isEmpty
+        else { return nil }
+
+        let remotes = (try? shell.check("git", ["remote"], cwd: repo))?
+            .split(separator: "\n").map(String.init) ?? []
+        if remotes.contains("origin") {
+            return GitBranch(name: name, location: .remote("origin"))
+        }
+        return GitBranch(name: name, location: .local)
     }
 
     /// A local-only branch is available through the clone's temporary `origin`.

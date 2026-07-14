@@ -32,21 +32,28 @@ final class SpaceServiceIntegrationTests: XCTestCase {
             creation: .feature(
                 branchName: "feat/test",
                 base: GitBranch(name: "base", location: .remote("origin"))),
+            displayName: "Test space",
             spacesURL: fixture.spacesURL)
 
-        let dest = fixture.parent.appendingPathComponent("proj__feat-test")
-        XCTAssertEqual(space.name, "proj__feat-test")
+        let dest = URL(fileURLWithPath: space.destination)
+        XCTAssertTrue(space.name.hasPrefix("proj__"), space.name)
+        XCTAssertFalse(space.name.contains("feat-test"), space.name)
         XCTAssertEqual(space.destination, dest.path)
         XCTAssertEqual(space.taskType, "feature")
         XCTAssertEqual(space.taskValue, "feat/test")
+        XCTAssertEqual(space.displayName, "Test space")
+        XCTAssertEqual(space.displayTitle, "Test space")
         XCTAssertEqual(try currentBranch(in: dest), "feat/test")
         XCTAssertTrue(FileManager.default.fileExists(atPath: dest.appendingPathComponent("BASE.md").path))
         XCTAssertEqual(
             try shell.check("git", ["remote", "get-url", "origin"], cwd: dest),
             fixture.remote.path)
+        XCTAssertEqual(
+            GitService().baseBranch(repo: dest),
+            GitBranch(name: "base", location: .remote("origin")))
 
         var store = try SpaceStore.load(url: fixture.spacesURL)
-        XCTAssertEqual(store.spaces.map(\.name), ["proj__feat-test"])
+        XCTAssertEqual(store.spaces.map(\.name), [space.name])
 
         try SpaceService().delete(space, spacesURL: fixture.spacesURL)
         XCTAssertFalse(FileManager.default.fileExists(atPath: dest.path))
@@ -69,7 +76,7 @@ final class SpaceServiceIntegrationTests: XCTestCase {
             spacesURL: fixture.spacesURL)
         let dest = URL(fileURLWithPath: space.destination)
 
-        XCTAssertEqual(space.name, "proj__local-only")
+        XCTAssertTrue(space.name.hasPrefix("proj__"), space.name)
         XCTAssertEqual(space.taskType, "review")
         XCTAssertEqual(space.taskValue, "branch-local-only")
         XCTAssertEqual(try currentBranch(in: dest), "local-only")
@@ -129,12 +136,15 @@ final class SpaceServiceIntegrationTests: XCTestCase {
         try commitFile("local\n", named: "LOCAL.md", message: "local", in: fixture.source)
 
         let project = Project(name: "proj", path: fixture.source.path)
+        let childrenBefore = try FileManager.default.contentsOfDirectory(
+            atPath: fixture.parent.path).sorted()
         XCTAssertThrowsError(try SpaceService().create(
             project: project,
             creation: .existingBranch(GitBranch(name: "main", location: .local)),
             spacesURL: fixture.spacesURL))
-        XCTAssertFalse(FileManager.default.fileExists(
-            atPath: fixture.parent.appendingPathComponent("proj__main").path))
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(atPath: fixture.parent.path).sorted(),
+            childrenBefore)
     }
 
     func testCreateFromRemoteOnlyBranchTracksSelectedRemote() throws {
@@ -159,7 +169,7 @@ final class SpaceServiceIntegrationTests: XCTestCase {
             spacesURL: fixture.spacesURL)
         let dest = URL(fileURLWithPath: space.destination)
 
-        XCTAssertEqual(space.name, "proj__remote-only")
+        XCTAssertTrue(space.name.hasPrefix("proj__"), space.name)
         XCTAssertEqual(try currentBranch(in: dest), "remote-only")
         XCTAssertEqual(
             try shell.check("git", ["rev-parse", "--abbrev-ref", "@{upstream}"], cwd: dest),
@@ -182,11 +192,12 @@ final class SpaceServiceIntegrationTests: XCTestCase {
             creation: .folder(name: "Experiment"),
             spacesURL: spacesURL)
 
-        XCTAssertEqual(space.name, "notes__experiment")
+        XCTAssertTrue(space.name.hasPrefix("notes__"), space.name)
         XCTAssertEqual(space.taskType, "folder")
         XCTAssertEqual(space.taskValue, "Experiment")
         XCTAssertTrue(FileManager.default.fileExists(
-            atPath: root.appendingPathComponent("notes__experiment/README.md").path))
+            atPath: URL(fileURLWithPath: space.destination)
+                .appendingPathComponent("README.md").path))
         XCTAssertEqual(try SpaceStore.load(url: spacesURL).spaces, [space])
     }
 
@@ -210,6 +221,106 @@ final class SpaceServiceIntegrationTests: XCTestCase {
             try gitService.deleteLocalBranch(named: "unmerged", repo: fixture.source))
         XCTAssertTrue(try gitService.listBranches(repo: fixture.source).contains(
             GitBranch(name: "unmerged", location: .local)))
+    }
+
+    func testGitActionsCommitPushMergeAndSwitchWithoutMovingFeatureBranch() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        try git(["checkout", "-b", "other"], in: fixture.source)
+        try commitFile("other\n", named: "OTHER.md", message: "other", in: fixture.source)
+        try git(["push", "-u", "origin", "other"], in: fixture.source)
+        try git(["checkout", "main"], in: fixture.source)
+        try git(["branch", "-D", "other"], in: fixture.source)
+
+        let project = Project(name: "proj", path: fixture.source.path)
+        let space = try SpaceService().create(
+            project: project,
+            creation: .feature(
+                branchName: "feat/actions",
+                base: GitBranch(name: "main", location: .remote("origin"))),
+            spacesURL: fixture.spacesURL)
+        let repo = URL(fileURLWithPath: space.destination)
+        let gitService = GitService()
+
+        try "change\n".write(
+            to: repo.appendingPathComponent("CHANGE.md"), atomically: true, encoding: .utf8)
+        XCTAssertEqual(try gitService.changedFiles(repo: repo), ["CHANGE.md"])
+
+        XCTAssertThrowsError(try gitService.commitAll(
+            message: "feat: stale preview", expectedFiles: [], repo: repo)) { error in
+            guard case GitActionError.changesChanged = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+
+        try gitService.commitAll(message: "feat: add change", repo: repo)
+        XCTAssertTrue(try gitService.changedFiles(repo: repo).isEmpty)
+        XCTAssertEqual(try currentBranch(in: repo), "feat/actions")
+        try gitService.pushCurrentBranch(repo: repo)
+
+        let featureHead = try shell.check("git", ["rev-parse", "HEAD"], cwd: repo)
+        XCTAssertEqual(
+            try shell.check(
+                "git", ["--git-dir", fixture.remote.path, "rev-parse", "feat/actions"]),
+            featureHead)
+
+        try gitService.mergeCurrentBranch(
+            into: GitBranch(name: "main", location: .remote("origin")),
+            push: true,
+            repo: repo)
+
+        XCTAssertEqual(try currentBranch(in: repo), "feat/actions")
+        XCTAssertEqual(
+            try shell.check("git", ["--git-dir", fixture.remote.path, "rev-parse", "main"]),
+            featureHead)
+
+        _ = try gitService.switchBranch(
+            GitBranch(name: "main", location: .local), repo: repo)
+        XCTAssertEqual(try currentBranch(in: repo), "main")
+        XCTAssertEqual(try gitService.repositoryState(repo: repo).currentBranch, "main")
+
+        _ = try gitService.switchBranch(
+            GitBranch(name: "other", location: .remote("origin")), repo: repo)
+        XCTAssertEqual(try currentBranch(in: repo), "other")
+        XCTAssertEqual(
+            try shell.check("git", ["rev-parse", "--abbrev-ref", "@{upstream}"], cwd: repo),
+            "origin/other")
+    }
+
+    func testCustomCommitGeneratorReadsContextFromStandardInput() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        try "change\n".write(
+            to: fixture.source.appendingPathComponent("CHANGE.md"),
+            atomically: true,
+            encoding: .utf8)
+
+        let message = try CommitMessageService().generate(
+            provider: .custom(command: "cat >/dev/null; printf 'feat: generated'"),
+            repo: fixture.source)
+
+        XCTAssertEqual(message, "feat: generated")
+    }
+
+    func testSwitchBranchCanChangeHeadBeforePostCheckoutHookFailure() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        try git(["branch", "other"], in: fixture.source)
+
+        let hook = fixture.source.appendingPathComponent(".git/hooks/post-checkout")
+        try "#!/bin/sh\nexit 1\n".write(
+            to: hook, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o755], ofItemAtPath: hook.path)
+
+        let result = try GitService().switchBranch(
+            GitBranch(name: "other", location: .local), repo: fixture.source)
+        guard case .switchedWithWarning(let detail) = result else {
+            return XCTFail("Expected a successful switch with a hook warning")
+        }
+        XCTAssertFalse(detail.isEmpty)
+        XCTAssertEqual(try currentBranch(in: fixture.source), "other")
     }
 
     // MARK: - Helpers

@@ -12,11 +12,14 @@ final class AppState: ObservableObject {
 
     @Published var settings = Settings()
     @Published var spaces: [TrackedSpace] = []
+    @Published private(set) var gitStates: [String: GitRepositoryState] = [:]
     @Published var agents: [AgentDefinition] = []
+    @Published var commitGenerators: [CommitGeneratorDefinition] = []
     @Published private(set) var shortcuts: AppShortcutSettings
     @Published private(set) var terminalTheme: TerminalTheme
     @Published private(set) var appLanguage: AppLanguage
     @Published var errorMessage: String?
+    @Published var noticeMessage: String?
     @Published var isBusy = false
 
     /// Set by the menu bar to ask the window to present the create sheet.
@@ -38,6 +41,7 @@ final class AppState: ObservableObject {
 
     private let spaceService = SpaceService()
     private let gitService = GitService()
+    private let commitMessageService = CommitMessageService()
     private let githubService = GitHubService()
     private let openService = OpenService()
 
@@ -82,7 +86,11 @@ final class AppState: ObservableObject {
         do {
             settings = try Settings.load()
             spaces = try SpaceStore.load().spaces
-            agents = try AgentLibrary.load().agents
+            let library = try AgentLibrary.load()
+            agents = library.agents
+            commitGenerators = library.commitGenerators
+            let currentSpaces = spaces
+            Task { await refreshGitStates(for: currentSpaces) }
         } catch {
             errorMessage = localizedError(error)
         }
@@ -119,6 +127,156 @@ final class AppState: ObservableObject {
         return await Task.detached { git.currentBranch(repo: repo) }.value
     }
 
+    func gitState(for space: TrackedSpace) -> GitRepositoryState? {
+        gitStates[space.name]
+    }
+
+    func currentBranch(for space: TrackedSpace) -> String? {
+        gitState(for: space)?.currentBranch
+    }
+
+    func refreshGitState(for space: TrackedSpace) async {
+        guard space.taskType != "folder" else {
+            gitStates[space.name] = nil
+            return
+        }
+        let git = gitService
+        let repo = URL(fileURLWithPath: space.destination)
+        let state = await Task.detached { try? git.repositoryState(repo: repo) }.value
+        guard spaces.contains(where: { $0.name == space.name }) else { return }
+        gitStates[space.name] = state
+    }
+
+    func refreshGitStates() async {
+        await refreshGitStates(for: spaces)
+    }
+
+    func listBranches(space: TrackedSpace, refresh: Bool = false) async -> [GitBranch]? {
+        let git = gitService
+        let repo = URL(fileURLWithPath: space.destination)
+        do {
+            return try await Task.detached {
+                refresh
+                    ? try git.refreshBranches(repo: repo)
+                    : try git.listBranches(repo: repo)
+            }.value
+        } catch {
+            errorMessage = localizedError(error)
+            return nil
+        }
+    }
+
+    func switchBranch(_ branch: GitBranch, in space: TrackedSpace) async -> Bool {
+        guard !sessionManager.isWorking(space) else {
+            errorMessage = localized("error.agent_working_git_action")
+            return false
+        }
+        let git = gitService
+        let repo = URL(fileURLWithPath: space.destination)
+        do {
+            let result = try await Task.detached {
+                try git.switchBranch(branch, repo: repo)
+            }.value
+            await refreshGitState(for: space)
+            if case .switchedWithWarning(let detail) = result {
+                noticeMessage = localized("git.switch_completed_with_warning", branch.name, detail)
+            }
+            return true
+        } catch {
+            await refreshGitState(for: space)
+            errorMessage = localizedError(error)
+            return false
+        }
+    }
+
+    func changedFiles(in space: TrackedSpace) async -> [String]? {
+        let git = gitService
+        let repo = URL(fileURLWithPath: space.destination)
+        do {
+            return try await Task.detached { try git.changedFiles(repo: repo) }.value
+        } catch {
+            errorMessage = localizedError(error)
+            return nil
+        }
+    }
+
+    func generateCommitMessage(
+        with provider: CommitMessageProvider,
+        in space: TrackedSpace
+    ) async -> String? {
+        guard !sessionManager.isWorking(space) else {
+            errorMessage = localized("error.agent_working_git_action")
+            return nil
+        }
+        let service = commitMessageService
+        let repo = URL(fileURLWithPath: space.destination)
+        do {
+            return try await Task.detached {
+                try service.generate(provider: provider, repo: repo)
+            }.value
+        } catch {
+            errorMessage = localizedError(error)
+            return nil
+        }
+    }
+
+    func commit(
+        in space: TrackedSpace,
+        message: String,
+        expectedFiles: [String],
+        push: Bool,
+        mergeInto target: GitBranch?,
+        pushMerge: Bool
+    ) async -> Bool {
+        guard !sessionManager.isWorking(space) else {
+            errorMessage = localized("error.agent_working_git_action")
+            return false
+        }
+        isBusy = true
+        defer { isBusy = false }
+        let git = gitService
+        let repo = URL(fileURLWithPath: space.destination)
+        do {
+            try await Task.detached {
+                try git.commitAll(
+                    message: message, expectedFiles: expectedFiles, repo: repo)
+                if let target {
+                    try git.mergeCurrentBranch(into: target, push: pushMerge, repo: repo)
+                } else if push {
+                    try git.pushCurrentBranch(repo: repo)
+                }
+            }.value
+            await refreshGitState(for: space)
+            return true
+        } catch {
+            await refreshGitState(for: space)
+            errorMessage = localizedError(error)
+            return false
+        }
+    }
+
+    private func refreshGitStates(for spaces: [TrackedSpace]) async {
+        let git = gitService
+        let states = await withTaskGroup(
+            of: (String, GitRepositoryState?).self,
+            returning: [String: GitRepositoryState].self
+        ) { group in
+            for space in spaces where space.taskType != "folder" {
+                group.addTask {
+                    let repo = URL(fileURLWithPath: space.destination)
+                    return (space.name, try? git.repositoryState(repo: repo))
+                }
+            }
+            var loaded: [String: GitRepositoryState] = [:]
+            for await (name, state) in group {
+                if let state { loaded[name] = state }
+            }
+            return loaded
+        }
+        guard self.spaces.map(\.name) == spaces.map(\.name) else { return }
+        gitStates = states
+    }
+
     // MARK: - GitHub queries (for the pull-request selector)
 
     func listPullRequests(project: Project) async -> [PullRequestSummary]? {
@@ -147,13 +305,16 @@ final class AppState: ObservableObject {
     // MARK: - Mutations
 
     /// Returns true on success. On failure sets `errorMessage`.
-    func createSpace(project: Project, creation: SpaceCreation) async -> Bool {
+    func createSpace(
+        project: Project, creation: SpaceCreation, displayName: String? = nil
+    ) async -> Bool {
         isBusy = true
         defer { isBusy = false }
         let service = spaceService
         do {
             _ = try await Task.detached {
-                try service.create(project: project, creation: creation)
+                try service.create(
+                    project: project, creation: creation, displayName: displayName)
             }.value
             reload()
             return true
@@ -208,7 +369,10 @@ final class AppState: ObservableObject {
     // MARK: - Agents
 
     func launchAgent(_ agent: AgentDefinition, in space: TrackedSpace) {
-        sessionManager.launch(agent: agent, in: space)
+        let branch = currentBranch(for: space)
+            ?? gitService.currentBranch(repo: URL(fileURLWithPath: space.destination))
+        sessionManager.launch(
+            agent: agent, in: space, currentBranch: branch)
         pendingSelectSpace = space.name
         showMainWindow()
     }
@@ -264,7 +428,8 @@ final class AppState: ObservableObject {
 
     func persistAgents() {
         do {
-            try AgentLibrary(agents: agents).save()
+            try AgentLibrary(
+                agents: agents, commitGenerators: commitGenerators).save()
         } catch {
             errorMessage = localizedError(error)
         }
@@ -389,6 +554,25 @@ final class AppState: ObservableObject {
             case .commandFailed(let command, let stderr):
                 let detail = stderr.isEmpty ? "" : "\n\(stderr)"
                 return localized("error.command_failed", command, detail)
+            }
+        }
+
+        if let error = error as? GitActionError {
+            switch error {
+            case .emptyCommitMessage:
+                return localized("error.commit_message_empty")
+            case .noChanges:
+                return localized("error.no_changes")
+            case .uncommittedChanges:
+                return localized("error.uncommitted_changes")
+            case .noCurrentBranch:
+                return localized("error.no_current_branch")
+            case .noPushRemote:
+                return localized("error.no_push_remote")
+            case .currentBranchIsMergeTarget:
+                return localized("error.merge_same_branch")
+            case .changesChanged:
+                return localized("error.changes_changed")
             }
         }
 

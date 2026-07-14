@@ -76,7 +76,11 @@ final class SessionManager: ObservableObject {
 
     // MARK: - Session control
 
-    func launch(agent: AgentDefinition, in space: TrackedSpace) {
+    func launch(
+        agent: AgentDefinition,
+        in space: TrackedSpace,
+        currentBranch: String? = nil
+    ) {
         do {
             let notifierPath: String?
             if agent.kind == .claude || agent.kind == .codex {
@@ -92,6 +96,7 @@ final class SessionManager: ObservableObject {
             let session = AgentSession(
                 space: space,
                 agent: agent,
+                currentBranch: currentBranch,
                 notifierPath: notifierPath,
                 theme: terminalTheme)
             session.onStateChange = { [weak self] session in

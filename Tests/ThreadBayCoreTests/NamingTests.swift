@@ -16,14 +16,20 @@ final class NamingTests: XCTestCase {
         XCTAssertEqual(Naming.slugify("Héllo"), "hllo")
     }
 
-    func testBranchSpaceNameHasNoTaskPrefix() {
-        XCTAssertEqual(
-            Naming.branchSpaceName(project: "proj", branch: "feat/x"),
-            "proj__feat-x")
+    func testRandomSpaceNameUsesProjectAndTwoWordIdentity() {
+        let name = Naming.randomSpaceName(project: "My Project")
+        XCTAssertTrue(name.hasPrefix("my-project__"), name)
+        let components = name.components(separatedBy: "__")
+        XCTAssertEqual(components.count, 2)
+        XCTAssertEqual(components.last?.split(separator: "-").count, 2)
     }
 
-    func testPullRequestSpaceName() {
-        XCTAssertEqual(Naming.pullRequestSpaceName(project: "proj", number: 42), "proj__pr-42")
+    func testGeneratedTitleOmitsProjectPrefix() {
+        let space = TrackedSpace(
+            projectName: "project", destination: "/tmp/project__cosmic-otter",
+            name: "project__cosmic-otter", createdAt: "2026-07-10T12:34:56Z",
+            taskType: "feature", taskValue: "feat/x")
+        XCTAssertEqual(space.displayTitle, "cosmic-otter")
     }
 
     func testEnsureUniqueNameAppendsSuffix() throws {
