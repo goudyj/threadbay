@@ -14,6 +14,7 @@ struct TerminalPane: View {
     /// actually see the terminal.
     @Environment(\.controlActiveState) private var activeState
     @State private var launchMenuRequest = 0
+    @State private var launchMenuLocation = NSPoint.zero
 
     private var sessions: [AgentSession] {
         manager.sessions(for: space)
@@ -81,11 +82,15 @@ struct TerminalPane: View {
             }
             .contentShape(Rectangle())
             .simultaneousGesture(
-                TapGesture(count: 2).onEnded { launchMenuRequest += 1 })
+                TapGesture(count: 2).onEnded {
+                    launchMenuLocation = NSEvent.mouseLocation
+                    launchMenuRequest += 1
+                })
             Spacer()
             AgentLaunchPopUpButton(
                 agents: app.agents,
                 requestID: launchMenuRequest,
+                menuLocation: launchMenuLocation,
                 help: app.localized("terminal.launch_another"),
                 launch: { app.launchAgent($0, in: space) })
                 .frame(width: 24, height: 24)
@@ -144,6 +149,7 @@ struct LaunchAgentMenu<Label: View>: View {
 private struct AgentLaunchPopUpButton: NSViewRepresentable {
     let agents: [AgentDefinition]
     let requestID: Int
+    let menuLocation: NSPoint
     let help: String
     let launch: (AgentDefinition) -> Void
 
@@ -165,7 +171,9 @@ private struct AgentLaunchPopUpButton: NSViewRepresentable {
         context.coordinator.configure(button, agents: agents, help: help)
         guard requestID != context.coordinator.lastRequestID else { return }
         context.coordinator.lastRequestID = requestID
-        DispatchQueue.main.async { button.performClick(nil) }
+        DispatchQueue.main.async {
+            button.menu?.popUp(positioning: nil, at: menuLocation, in: nil)
+        }
     }
 
     @MainActor
