@@ -3,7 +3,7 @@
 Suivi d'implémentation du plan `docs/plan-terminal-embarque.html` (décisions 1→9 closes).
 
 ## Phase 0 — Spike SwiftTerm ✅ (plomberie validée, go/no-go visuel à faire à la main)
-- Dépendance SPM `SwiftTerm` (v1.14.0) ajoutée au target `Orchestrate`.
+- Dépendance SPM `SwiftTerm` (v1.14.0) ajoutée au target `ThreadBay`.
 - API vérifiée sur les sources : `startProcess(executable:args:environment:execName:currentDirectory:)`,
   `process.shellPid` public, `terminate()`, délégué rappelé sur la main queue,
   `Terminal.getEnvironmentVariables` fournit `TERM`/`COLORTERM`/`LANG` (UTF-8 OK pour les TUI).
@@ -11,10 +11,10 @@ Suivi d'implémentation du plan `docs/plan-terminal-embarque.html` (décisions 1
   valider à l'œil en lançant l'app — non automatisable ici.
 
 ## Phase 1 — Modèle de sessions ✅
-- `AgentDefinition` (+ `Kind` claude/codex/shell/custom) — `OrchestrateCore/AgentLibrary.swift`.
+- `AgentDefinition` (+ `Kind` claude/codex/shell/custom) — `ThreadBayCore/AgentLibrary.swift`.
 - `AgentSession` (start/stop/restart/clear, état `.starting/.running/.exited` via délégué,
-  `attention` pour les badges) — `Orchestrate/AgentSession.swift`.
-- `SessionManager` observable (launch/close/select, N sessions par espace) — `Orchestrate/SessionManager.swift`.
+  `attention` pour les badges) — `ThreadBay/AgentSession.swift`.
+- `SessionManager` observable (launch/close/select, N sessions par espace) — `ThreadBay/SessionManager.swift`.
 - Wrapper `NSViewRepresentable` (`TerminalHostView`) : la vue terminal appartient à la
   session et survit aux changements de sélection.
 - Arrêt : SIGTERM + SIGHUP (shells interactifs), SIGKILL après 3 s si ignoré.
@@ -27,7 +27,7 @@ Suivi d'implémentation du plan `docs/plan-terminal-embarque.html` (décisions 1
 - « Lancer un agent » : ligne d'espace (vue d'ensemble), détail, état vide, et menu-bar.
 
 ## Phase 3 — Config des agents ✅
-- `agents.yaml` **app-only** dans `~/Library/Application Support/com.jlex.orchestrate/`
+- `agents.yaml` **app-only** dans `~/Library/Application Support/com.jlex.threadbay/`
   (décision n°3 : zéro risque interop avec la CLI Rust). Défauts : Claude, Codex, Shell.
 - Placeholders `{space_path} {branch} {task_value} {name} {project}` (`CommandTemplate`).
 - Éditeur d'agents dans les Réglages (nom, commande, type, ajout/retrait).
@@ -39,9 +39,9 @@ Suivi d'implémentation du plan `docs/plan-terminal-embarque.html` (décisions 1
     `.claude/settings.local.json` **de l'espace** (les autres clés du fichier sont
     préservées). `UserPromptSubmit`→`Stop` encadre le tour : état « réfléchit » (indigo)
     visible depuis la sidebar et les onglets de session.
-  - Codex : `-c notify=["…orchestrate-notify.sh","codex-notify"]` par process.
-  - Identité par env : `ORCHESTRATE_SESSION_ID` + `ORCHESTRATE_SOCK`.
-  - Notifieur `orchestrate-notify.sh` → **socket Unix** `orchestrate.sock` (décision n°8) ;
+  - Codex : `-c notify=["…threadbay-notify.sh","codex-notify"]` par process.
+  - Identité par env : `THREADBAY_SESSION_ID` + `THREADBAY_SOCK`.
+  - Notifieur `threadbay-notify.sh` → **socket Unix** `threadbay.sock` (décision n°8) ;
     no-op silencieux si l'app ne tourne pas. Testé de bout en bout (nc -U).
 - Notifications macOS (`UserNotifications`, inertes hors bundle) ; clic → fenêtre + session.
 - **Canal 2** (OSC 9/777/99) : non fait — optionnel dans le plan (« si le spike le permet

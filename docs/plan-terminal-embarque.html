@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Orchestrate — Plan : terminal embarqué &amp; agents (Option B)</title>
+<title>ThreadBay — Plan : terminal embarqué &amp; agents (Option B)</title>
 <style>
   :root {
     --bg: #0f1117;
@@ -91,12 +91,12 @@
 <div class="wrap">
 
 <header class="doc">
-  <h1>Terminal embarqué &amp; agents dans Orchestrate</h1>
+  <h1>Terminal embarqué &amp; agents dans ThreadBay</h1>
   <p class="sub">Plan technique — Option B : faire tourner Claude&nbsp;Code / Codex à l'intérieur de l'app, un agent par espace.</p>
   <div class="badges">
     <span class="badge status">v1 — décisions closes (1→9), prêt pour la phase 0</span>
     <span class="badge">Cible : macOS 14+ / SwiftUI + AppKit</span>
-    <span class="badge">App : <span class="mono">orchestrate-app</span></span>
+    <span class="badge">App : <span class="mono">threadbay</span></span>
   </div>
 </header>
 
@@ -122,11 +122,11 @@
 </div>
 
 <h2 id="vision">1. Vision &amp; objectif</h2>
-<p>Aujourd'hui Orchestrate <em>crée</em> des espaces (clone + branche depuis une base) et les ouvre dans un IDE.
+<p>Aujourd'hui ThreadBay <em>crée</em> des espaces (clone + branche depuis une base) et les ouvre dans un IDE.
 L'étape suivante&nbsp;: en faire une <strong>salle de contrôle d'agents</strong>. Depuis un espace, on lance un agent
 (Claude&nbsp;Code, Codex, ou une commande custom) qui tourne <strong>dans un vrai terminal, embarqué dans la fenêtre</strong>,
 avec suivi du cycle de vie (démarré / en cours / terminé), possibilité de relancer/arrêter, et une vue d'ensemble des
-agents actifs en parallèle. C'est là que le nom «&nbsp;orchestrate&nbsp;» prend tout son sens.</p>
+agents actifs en parallèle. C'est là que le nom «&nbsp;threadbay&nbsp;» prend tout son sens.</p>
 
 <div class="callout reco">
   <span class="tag">Pourquoi embarqué plutôt que Ghostty externe</span>
@@ -181,7 +181,7 @@ qui&nbsp;: crée un pseudo-terminal (<span class="mono">forkpty</span>), lance u
 
 <h3>Points d'intégration clés</h3>
 <ul class="tight">
-  <li>Ajouter la dépendance SPM SwiftTerm au target <span class="mono">Orchestrate</span>.</li>
+  <li>Ajouter la dépendance SPM SwiftTerm au target <span class="mono">ThreadBay</span>.</li>
   <li>Envelopper <span class="mono">LocalProcessTerminalView</span> dans un <span class="mono">NSViewRepresentable</span> pour l'utiliser en SwiftUI.</li>
   <li>Lancer&nbsp;: <span class="mono">startProcess(executable: "/bin/zsh", args: ["-lc", "exec &lt;agent&gt;"], environment: …)</span> avec le répertoire courant positionné sur l'espace.</li>
   <li>Le délégué <span class="mono">LocalProcessTerminalViewDelegate</span> notifie&nbsp;: <span class="mono">processTerminated(exitCode)</span>, <span class="mono">sizeChanged</span>, <span class="mono">setTerminalTitle</span>, <span class="mono">hostCurrentDirectoryUpdate</span> → on s'en sert pour l'état de la session.</li>
@@ -273,7 +273,7 @@ final class AgentSession: Identifiable, ObservableObject {
   <tr><th>Piste</th><th>Détail</th><th>Verdict</th></tr>
   <tr><td>Réutiliser <span class="mono">agent_commands</span></td><td>Déjà là, mais clé par <em>type de tâche</em> (review/feature), pas par agent nommé.</td><td>Mauvais fit conceptuel.</td></tr>
   <tr><td>Nouvelle clé <span class="mono">agents:</span> dans settings.yaml</td><td>Partagé app+CLI, mais impose une modif de la struct Rust pour préserver la clé.</td><td>Propre si on veut le partage CLI.</td></tr>
-  <tr><td class="reco">Fichier app-only</td><td><span class="mono">~/Library/Application Support/com.jlex.orchestrate/agents.yaml</span> — indépendant de la CLI.</td><td class="reco">Le plus simple, zéro risque interop.</td></tr>
+  <tr><td class="reco">Fichier app-only</td><td><span class="mono">~/Library/Application Support/com.jlex.threadbay/agents.yaml</span> — indépendant de la CLI.</td><td class="reco">Le plus simple, zéro risque interop.</td></tr>
 </table>
 <p class="muted">Défauts livrés d'office&nbsp;: <span class="mono">claude</span>, <span class="mono">codex</span>, «&nbsp;Shell&nbsp;» (juste <span class="mono">zsh</span>). Custom éditable ensuite.</p>
 
@@ -287,7 +287,7 @@ final class AgentSession: Identifiable, ObservableObject {
   <tr><td>5</td><td>Se souvenir des agents entre 2 lancements</td><td>Non · Mémoriser quels espaces avaient un agent</td><td class="reco">Non pour la v1</td><td><span class="pill done">décidé</span></td></tr>
   <tr><td>6</td><td>Agents proposés par défaut</td><td>Claude · Codex · Shell · Custom</td><td class="reco">Les 4</td><td><span class="pill done">décidé</span></td></tr>
   <tr><td>7</td><td>Événements à notifier</td><td>Tour/tâche fini · Besoin d'input (permission) · Session terminée</td><td class="reco">Les trois, libellés distincts</td><td><span class="pill done">décidé</span></td></tr>
-  <tr><td>8</td><td>Transport hook → app</td><td>Socket local (temps réel) · Fichier watché (<span class="mono">~/.orchestrate/events</span>)</td><td class="reco">Socket local <span class="muted">(retenu)</span></td><td><span class="pill done">décidé</span></td></tr>
+  <tr><td>8</td><td>Transport hook → app</td><td>Socket local (temps réel) · Fichier watché (<span class="mono">~/.threadbay/events</span>)</td><td class="reco">Socket local <span class="muted">(retenu)</span></td><td><span class="pill done">décidé</span></td></tr>
   <tr><td>9</td><td>Injection des hooks / notify</td><td>Par-espace &amp; par-lancement · Global (<span class="mono">~/.claude</span>, <span class="mono">~/.codex</span>)</td><td class="reco">Par-espace / par-lancement (non invasif)</td><td><span class="pill done">décidé</span></td></tr>
 </table>
 
@@ -388,25 +388,25 @@ sans toucher à aucun fichier de config.</p>
 <p><strong>Injection non invasive</strong> (on ne touche pas à la config globale de l'utilisateur)&nbsp;:</p>
 <ul class="tight">
   <li>Claude&nbsp;: écrire un <span class="mono">.claude/settings.local.json</span> <em>dans l'espace</em> (déjà un clone jetable) avec nos hooks.</li>
-  <li>Codex&nbsp;: passer <span class="mono">-c 'notify=["orchestrate","notify"]'</span> au lancement (override par process, pas de modif de <span class="mono">~/.codex/config.toml</span>).</li>
+  <li>Codex&nbsp;: passer <span class="mono">-c 'notify=["threadbay","notify"]'</span> au lancement (override par process, pas de modif de <span class="mono">~/.codex/config.toml</span>).</li>
 </ul>
 
 <h3>Comment l'app reçoit le signal</h3>
-<p>On maîtrise le lancement de l'agent&nbsp;: on injecte dans son environnement <span class="mono">ORCHESTRATE_SESSION_ID</span> (identité)
-et <span class="mono">ORCHESTRATE_SOCK</span> (adresse du socket). Le hook/notify appelle un petit notifieur
-(sous-commande <span class="mono">orchestrate notify …</span> ou script) qui transmet <span class="mono">{session_id, type, title, body}</span>&nbsp;:</p>
+<p>On maîtrise le lancement de l'agent&nbsp;: on injecte dans son environnement <span class="mono">THREADBAY_SESSION_ID</span> (identité)
+et <span class="mono">THREADBAY_SOCK</span> (adresse du socket). Le hook/notify appelle un petit notifieur
+(sous-commande <span class="mono">threadbay notify …</span> ou script) qui transmet <span class="mono">{session_id, type, title, body}</span>&nbsp;:</p>
 <div class="callout reco">
   <span class="tag">Transport retenu — socket local (décision n°8)</span>
   Un <strong>socket de domaine Unix</strong> que l'app ouvre au démarrage&nbsp;; le notifieur s'y connecte et envoie le message en temps réel.
   <strong>C'est exactement le choix de cmux</strong> (<span class="mono">/tmp/cmux.sock</span> + CLI <span class="mono">cmux notify</span>). Le script teste
   l'existence du socket et devient un no-op si l'app n'est pas lancée.
-  <em>Fallback simple si besoin&nbsp;:</em> un <strong>fichier</strong> déposé dans <span class="mono">~/.orchestrate/events/</span> et surveillé (FSEvents).
+  <em>Fallback simple si besoin&nbsp;:</em> un <strong>fichier</strong> déposé dans <span class="mono">~/.threadbay/events/</span> et surveillé (FSEvents).
 </div>
 <p><span class="muted">Note&nbsp;: on ne présuppose aucun binaire d'agent particulier — <span class="mono">claude</span>/<span class="mono">codex</span> sont résolus
 via un login shell, comme n'importe quel terminal.</span></p>
 <p>L'app mappe <span class="mono">session_id → AgentSession</span>, met à jour le <strong>badge d'état de l'espace</strong> et poste une
 <strong>notification macOS</strong> (framework <span class="mono">UserNotifications</span>&nbsp;; autorisation demandée une fois&nbsp;; clic → focus l'app + sélectionne la session).
-Le bundle id (<span class="mono">com.jlex.orchestrate.app</span>) est déjà en place.</p>
+Le bundle id (<span class="mono">com.jlex.threadbay.app</span>) est déjà en place.</p>
 
 <div class="callout warn">
   <span class="tag">Leçon de cmux</span>

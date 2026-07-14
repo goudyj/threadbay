@@ -1,14 +1,14 @@
 #!/bin/bash
-# Builds a release binary and wraps it into a double-clickable Orchestrate.app
+# Builds a release binary and wraps it into a double-clickable ThreadBay.app
 # with LSUIElement (menu-bar app, no Dock icon). Ad-hoc signs it so it launches
 # locally without Gatekeeper prompts.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-APP_NAME="Orchestrate"
+APP_NAME="ThreadBay"
 APP_DIR="${APP_NAME}.app"
-BUNDLE_ID="com.jlex.orchestrate.app"
+BUNDLE_ID="com.jlex.threadbay.app"
 VERSION="0.1.0"
 
 echo "→ swift build -c release"

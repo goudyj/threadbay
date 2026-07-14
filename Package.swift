@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "Orchestrate",
+    name: "ThreadBay",
     defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     dependencies: [
@@ -11,21 +11,21 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "OrchestrateCore",
+            name: "ThreadBayCore",
             dependencies: ["Yams"]
         ),
         .executableTarget(
-            name: "Orchestrate",
-            dependencies: ["OrchestrateCore", "SwiftTerm"],
+            name: "ThreadBay",
+            dependencies: ["ThreadBayCore", "SwiftTerm"],
             resources: [.process("Resources")]
         ),
         .testTarget(
-            name: "OrchestrateCoreTests",
-            dependencies: ["OrchestrateCore"]
+            name: "ThreadBayCoreTests",
+            dependencies: ["ThreadBayCore"]
         ),
         .testTarget(
-            name: "OrchestrateTests",
-            dependencies: ["Orchestrate"]
+            name: "ThreadBayTests",
+            dependencies: ["ThreadBay"]
         ),
     ]
 )
