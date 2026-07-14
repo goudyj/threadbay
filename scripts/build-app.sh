@@ -14,7 +14,8 @@ VERSION="0.1.0"
 echo "→ swift build -c release"
 swift build -c release
 
-BIN_PATH="$(swift build -c release --show-bin-path)/${APP_NAME}"
+BIN_DIR="$(swift build -c release --show-bin-path)"
+BIN_PATH="${BIN_DIR}/${APP_NAME}"
 
 echo "→ assembling ${APP_DIR}"
 rm -rf "${APP_DIR}"
@@ -22,6 +23,13 @@ mkdir -p "${APP_DIR}/Contents/MacOS"
 mkdir -p "${APP_DIR}/Contents/Resources"
 
 cp "${BIN_PATH}" "${APP_DIR}/Contents/MacOS/${APP_NAME}"
+
+# SwiftPM keeps localized resources in a sibling bundle. Bundle.module looks
+# for it in Contents/Resources when the executable is wrapped as an app.
+for resource_bundle in "${BIN_DIR}"/*.bundle; do
+    [ -d "${resource_bundle}" ] || continue
+    cp -R "${resource_bundle}" "${APP_DIR}/Contents/Resources/"
+done
 
 cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

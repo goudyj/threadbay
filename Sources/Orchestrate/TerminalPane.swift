@@ -54,12 +54,12 @@ struct TerminalPane: View {
 
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("Aucun agent", systemImage: "terminal")
+            Label(app.localized("terminal.no_agent"), systemImage: "terminal")
         } description: {
-            Text("Lance un agent dans cet espace pour le piloter d'ici.")
+            Text(app.localized("terminal.no_agent_help"))
         } actions: {
             LaunchAgentMenu(space: space) {
-                Label("Lancer un agent", systemImage: "play.fill")
+                Label(app.localized("main.launch_agent"), systemImage: "play.fill")
             }
             .fixedSize()
         }
@@ -87,7 +87,7 @@ struct TerminalPane: View {
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
-            .help("Lancer un autre agent dans cet espace")
+            .help(app.localized("terminal.launch_another"))
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
@@ -96,6 +96,7 @@ struct TerminalPane: View {
 
 /// One session "tab": status dot, agent name, close button.
 private struct SessionTab: View {
+    @EnvironmentObject var app: AppState
     @ObservedObject var session: AgentSession
     let isSelected: Bool
     let select: () -> Void
@@ -114,7 +115,7 @@ private struct SessionTab: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help("Fermer la session")
+            .help(app.localized("terminal.close_session"))
         }
         .font(.callout)
         .padding(.horizontal, 8)
@@ -124,12 +125,13 @@ private struct SessionTab: View {
                 .fill(isSelected ? Color.accentColor.opacity(0.22) : Color.clear))
         .contentShape(Rectangle())
         .onTapGesture(perform: select)
-        .help(session.stateDescription)
+        .help(session.stateDescription(language: app.appLanguage))
     }
 }
 
 /// Restart / stop / clear buttons for the selected session.
 private struct SessionActions: View {
+    @EnvironmentObject var app: AppState
     @ObservedObject var session: AgentSession
 
     var body: some View {
@@ -139,20 +141,20 @@ private struct SessionActions: View {
             } label: {
                 Image(systemName: "arrow.clockwise")
             }
-            .help("Relancer l'agent")
+            .help(app.localized("terminal.restart"))
             Button {
                 session.stop()
             } label: {
                 Image(systemName: "stop.fill")
             }
             .disabled(!session.state.isActive)
-            .help("Arrêter l'agent")
+            .help(app.localized("terminal.stop"))
             Button {
                 session.clear()
             } label: {
                 Image(systemName: "clear")
             }
-            .help("Effacer le terminal")
+            .help(app.localized("terminal.clear"))
         }
         .buttonStyle(.borderless)
     }
@@ -188,18 +190,27 @@ extension AgentSession {
         }
     }
 
-    var stateDescription: String {
+    func stateDescription(language: AppLanguage) -> String {
         switch state {
-        case .starting: return "Démarrage…"
+        case .starting:
+            return L10n.string("terminal.starting", language: language)
         case .running:
             switch attention {
-            case .needsInput: return "A besoin de toi"
-            case .turnEnded: return "Tour terminé"
-            default: return isWorking ? "Réfléchit…" : "En cours"
+            case .needsInput:
+                return L10n.string("terminal.needs_input", language: language)
+            case .turnEnded:
+                return L10n.string("terminal.turn_completed", language: language)
+            default:
+                return L10n.string(
+                    isWorking ? "terminal.working" : "terminal.running",
+                    language: language)
             }
         case .exited(let code):
-            if let code { return "Terminé (code \(code))" }
-            return "Terminé"
+            if let code {
+                return L10n.string(
+                    "terminal.finished_code", language: language, arguments: [code])
+            }
+            return L10n.string("terminal.finished", language: language)
         }
     }
 }

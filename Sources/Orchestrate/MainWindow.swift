@@ -23,7 +23,7 @@ struct MainWindow: View {
             Divider()
             NavigationSplitView {
                 List(selection: $selection) {
-                    Label("Tous les espaces", systemImage: "square.stack.3d.up")
+                    Label(app.localized("main.all_spaces"), systemImage: "square.stack.3d.up")
                         .tag("")
                     ForEach(app.groups) { group in
                         Section(group.id) {
@@ -49,7 +49,7 @@ struct MainWindow: View {
         .onChange(of: app.pendingNewSpace) { _, _ in applyPending() }
         .onChange(of: app.pendingSettings) { _, _ in applyPending() }
         .onChange(of: app.pendingSelectSpace) { _, _ in applyPending() }
-        .alert("Erreur", isPresented: errorPresented) {
+        .alert(app.localized("main.error"), isPresented: errorPresented) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(app.errorMessage ?? "")
@@ -59,15 +59,15 @@ struct MainWindow: View {
     private var header: some View {
         HStack(spacing: 8) {
             Button { showNew = true } label: {
-                Label("Nouvel espace", systemImage: "plus")
+                Label(app.localized("main.new_space"), systemImage: "plus")
             }
             .disabled(app.settings.projects.isEmpty)
             Spacer()
             Button { app.reload() } label: {
-                Label("Rafraîchir", systemImage: "arrow.clockwise")
+                Label(app.localized("common.refresh"), systemImage: "arrow.clockwise")
             }
             Button { showSettings = true } label: {
-                Label("Réglages", systemImage: "gearshape")
+                Label(app.localized("common.settings"), systemImage: "gearshape")
             }
         }
         .padding(.horizontal, 12)
@@ -95,9 +95,9 @@ struct MainWindow: View {
             SpaceDetail(space: space)
         } else if app.spaces.isEmpty {
             ContentUnavailableView(
-                "Aucun espace",
+                app.localized("main.no_spaces"),
                 systemImage: "square.stack.3d.up.slash",
-                description: Text("Crée un espace avec le bouton + de la barre d'outils."))
+                description: Text(app.localized("main.no_spaces_help")))
         } else {
             List {
                 ForEach(app.groups) { group in
@@ -121,6 +121,7 @@ struct MainWindow: View {
 /// Sidebar row: space name plus a badge with the number of active agents; the
 /// badge turns orange when an agent needs input.
 private struct SidebarSpaceRow: View {
+    @EnvironmentObject var app: AppState
     let space: TrackedSpace
     @ObservedObject var manager: SessionManager
 
@@ -150,9 +151,9 @@ private struct SidebarSpaceRow: View {
     }
 
     private func badgeHelp(running: Int) -> String {
-        if manager.needsAttention(space) { return "Un agent a besoin de toi" }
-        if manager.isWorking(space) { return "Un agent réfléchit…" }
-        return "\(running) agent(s) actif(s)"
+        if manager.needsAttention(space) { return app.localized("main.agent_needs_input") }
+        if manager.isWorking(space) { return app.localized("main.agent_working") }
+        return app.localized("main.active_agents", running)
     }
 }
 
@@ -170,10 +171,12 @@ private struct SpaceDetail: View {
             TerminalPane(manager: app.sessionManager, space: space)
         }
         .confirmationDialog(
-            "Supprimer « \(space.name) » ?", isPresented: $confirmingDelete, titleVisibility: .visible
+            app.localized("main.delete_title", space.name),
+            isPresented: $confirmingDelete,
+            titleVisibility: .visible
         ) {
-            Button("Supprimer", role: .destructive) { app.delete(space) }
-            Button("Annuler", role: .cancel) {}
+            Button(app.localized("common.delete"), role: .destructive) { app.delete(space) }
+            Button(app.localized("common.cancel"), role: .cancel) {}
         } message: {
             Text(deleteMessage)
         }
@@ -181,8 +184,10 @@ private struct SpaceDetail: View {
 
     private var deleteMessage: String {
         let running = app.sessionManager.runningCount(for: space)
-        let agents = running > 0 ? " \(running) agent(s) actif(s) seront arrêtés." : ""
-        return "Le dossier \(space.destination) sera supprimé.\(agents)"
+        if running > 0 {
+            return app.localized("main.delete_folder_agents", space.destination, running)
+        }
+        return app.localized("main.delete_folder", space.destination)
     }
 
     private var header: some View {
@@ -199,10 +204,10 @@ private struct SpaceDetail: View {
             }
             Spacer()
             LaunchAgentMenu(space: space) {
-                Label("Lancer un agent", systemImage: "play.fill")
+                Label(app.localized("main.launch_agent"), systemImage: "play.fill")
             }
             .fixedSize()
-            Menu("Ouvrir dans…") {
+            Menu(app.localized("main.open_in")) {
                 ForEach(Editor.allCases) { editor in
                     Button(editor.displayName) { app.open(editor, space) }
                 }
@@ -213,7 +218,7 @@ private struct SpaceDetail: View {
                 Button(role: .destructive) {
                     confirmingDelete = true
                 } label: {
-                    Label("Supprimer", systemImage: "trash")
+                    Label(app.localized("common.delete"), systemImage: "trash")
                 }
             }
             .buttonStyle(.borderless)
@@ -242,7 +247,9 @@ struct SpaceRow: View {
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .textSelection(.enabled)
-                Text("Créé le \(formatCreatedAt(space.createdAt))")
+                Text(app.localized(
+                    "main.created_on",
+                    formatCreatedAt(space.createdAt, locale: app.appLanguage.locale)))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -250,10 +257,10 @@ struct SpaceRow: View {
             VStack(alignment: .trailing, spacing: 6) {
                 HStack(spacing: 8) {
                     LaunchAgentMenu(space: space) {
-                        Label("Lancer un agent", systemImage: "play.fill")
+                        Label(app.localized("main.launch_agent"), systemImage: "play.fill")
                     }
                     .fixedSize()
-                    Menu("Ouvrir dans…") {
+                    Menu(app.localized("main.open_in")) {
                         ForEach(Editor.allCases) { editor in
                             Button(editor.displayName) { app.open(editor, space) }
                         }
@@ -265,7 +272,7 @@ struct SpaceRow: View {
                     Button(role: .destructive) {
                         confirmingDelete = true
                     } label: {
-                        Label("Supprimer", systemImage: "trash")
+                        Label(app.localized("common.delete"), systemImage: "trash")
                     }
                 }
                 .buttonStyle(.borderless)
@@ -274,12 +281,14 @@ struct SpaceRow: View {
         }
         .padding(.vertical, 4)
         .confirmationDialog(
-            "Supprimer « \(space.name) » ?", isPresented: $confirmingDelete, titleVisibility: .visible
+            app.localized("main.delete_title", space.name),
+            isPresented: $confirmingDelete,
+            titleVisibility: .visible
         ) {
-            Button("Supprimer", role: .destructive) { app.delete(space) }
-            Button("Annuler", role: .cancel) {}
+            Button(app.localized("common.delete"), role: .destructive) { app.delete(space) }
+            Button(app.localized("common.cancel"), role: .cancel) {}
         } message: {
-            Text("Le dossier \(space.destination) sera supprimé.")
+            Text(app.localized("main.delete_folder", space.destination))
         }
     }
 }

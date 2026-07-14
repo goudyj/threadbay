@@ -16,10 +16,14 @@ final class NamingTests: XCTestCase {
         XCTAssertEqual(Naming.slugify("Héllo"), "hllo")
     }
 
-    func testFeatureSpaceName() {
+    func testBranchSpaceNameHasNoTaskPrefix() {
         XCTAssertEqual(
-            Naming.featureSpaceName(project: "proj", branch: "feat/x"),
-            "proj__feature-feat-x")
+            Naming.branchSpaceName(project: "proj", branch: "feat/x"),
+            "proj__feat-x")
+    }
+
+    func testPullRequestSpaceName() {
+        XCTAssertEqual(Naming.pullRequestSpaceName(project: "proj", number: 42), "proj__pr-42")
     }
 
     func testEnsureUniqueNameAppendsSuffix() throws {

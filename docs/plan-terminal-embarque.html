@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orchestrate — Plan : terminal embarqué &amp; agents (Option B)</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #171a22;
+    --panel-2: #1e222c;
+    --border: #2a2f3a;
+    --text: #e6e8ee;
+    --muted: #9aa3b2;
+    --accent: #7aa2f7;
+    --accent-2: #9ece6a;
+    --warn: #e0af68;
+    --danger: #f7768e;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.6; font-size: 16px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 48px 24px 96px; }
+  header.doc { border-bottom: 1px solid var(--border); padding-bottom: 24px; margin-bottom: 32px; }
+  h1 { font-size: 30px; margin: 0 0 8px; letter-spacing: -0.02em; }
+  h2 { font-size: 22px; margin: 48px 0 12px; letter-spacing: -0.01em; }
+  h3 { font-size: 17px; margin: 24px 0 8px; color: var(--accent); }
+  .sub { color: var(--muted); margin: 0; }
+  .badges { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge {
+    font-size: 12px; padding: 3px 10px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--panel-2); color: var(--muted);
+  }
+  .badge.status { border-color: var(--warn); color: var(--warn); }
+  p, li { color: var(--text); }
+  a { color: var(--accent); }
+  code, .mono { font-family: var(--mono); font-size: 0.9em; }
+  code { background: var(--panel-2); padding: 1px 6px; border-radius: 5px; color: #cbd3e1; }
+  pre {
+    background: #0b0d12; border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; overflow-x: auto; font-family: var(--mono); font-size: 13px; color: #cbd3e1;
+  }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 20px; margin: 14px 0;
+  }
+  .callout { border-left: 3px solid var(--accent); padding: 12px 16px; border-radius: 8px; background: var(--panel); margin: 14px 0; }
+  .callout.reco { border-color: var(--accent-2); }
+  .callout.warn { border-color: var(--warn); }
+  .callout.risk { border-color: var(--danger); }
+  .callout .tag { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); display: block; margin-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  td.reco { color: var(--accent-2); }
+  .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--warn); color: var(--warn); white-space: nowrap; }
+  .pill.done { border-color: var(--accent-2); color: var(--accent-2); }
+  /* phases */
+  .phase { display: grid; grid-template-columns: 44px 1fr; gap: 14px; margin: 10px 0; }
+  .phase .n {
+    width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--panel-2); border: 1px solid var(--border); color: var(--accent); font-weight: 700;
+  }
+  .phase .body { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; }
+  .phase .body h3 { margin-top: 0; color: var(--text); }
+  .verify { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .verify b { color: var(--accent-2); font-weight: 600; }
+  /* diagram */
+  .diagram { background: #0b0d12; border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin: 14px 0; }
+  .layer { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin: 8px 0; }
+  .node {
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 14px; font-size: 13px; text-align: center; min-width: 120px;
+  }
+  .node.accent { border-color: var(--accent); }
+  .node.core { border-color: var(--accent-2); }
+  .arrow { text-align: center; color: var(--muted); font-size: 18px; line-height: 1; }
+  .muted { color: var(--muted); }
+  ul.tight { margin: 6px 0; padding-left: 20px; }
+  .kbd { font-family: var(--mono); font-size: 12px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; }
+  .toc { columns: 2; column-gap: 32px; font-size: 14px; }
+  .toc a { text-decoration: none; }
+  footer.doc { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>Terminal embarqué &amp; agents dans Orchestrate</h1>
+  <p class="sub">Plan technique — Option B : faire tourner Claude&nbsp;Code / Codex à l'intérieur de l'app, un agent par espace.</p>
+  <div class="badges">
+    <span class="badge status">v1 — décisions closes (1→9), prêt pour la phase 0</span>
+    <span class="badge">Cible : macOS 14+ / SwiftUI + AppKit</span>
+    <span class="badge">App : <span class="mono">orchestrate-app</span></span>
+  </div>
+</header>
+
+<div class="card">
+  <strong>Comment lire ce document</strong>
+  <p style="margin:8px 0 0">C'est un plan vivant. Les points marqués <span class="pill">à décider</span> sont ouverts&nbsp;: chacun a
+  <em>ma recommandation</em>, mais on tranche ensemble. On raffine ce fichier au fil de la discussion avant d'écrire une ligne de code.</p>
+</div>
+
+<h2 id="toc">Sommaire</h2>
+<div class="toc">
+  <a href="#vision">1. Vision &amp; objectif</a><br>
+  <a href="#reuse">2. Ce qu'on réutilise</a><br>
+  <a href="#archi">3. Architecture technique</a><br>
+  <a href="#swiftterm">4. SwiftTerm &amp; le PTY</a><br>
+  <a href="#data">5. Modèle de données</a><br>
+  <a href="#ui">6. Interface proposée</a><br>
+  <a href="#config">7. Config des agents &amp; interop CLI</a><br>
+  <a href="#decisions">8. Décisions à trancher</a><br>
+  <a href="#phases">9. Découpage en phases</a><br>
+  <a href="#risks">10. Risques &amp; inconnues</a><br>
+  <a href="#notif">11. Notifications &amp; détection de fin</a><br>
+</div>
+
+<h2 id="vision">1. Vision &amp; objectif</h2>
+<p>Aujourd'hui Orchestrate <em>crée</em> des espaces (clone + branche depuis une base) et les ouvre dans un IDE.
+L'étape suivante&nbsp;: en faire une <strong>salle de contrôle d'agents</strong>. Depuis un espace, on lance un agent
+(Claude&nbsp;Code, Codex, ou une commande custom) qui tourne <strong>dans un vrai terminal, embarqué dans la fenêtre</strong>,
+avec suivi du cycle de vie (démarré / en cours / terminé), possibilité de relancer/arrêter, et une vue d'ensemble des
+agents actifs en parallèle. C'est là que le nom «&nbsp;orchestrate&nbsp;» prend tout son sens.</p>
+
+<div class="callout reco">
+  <span class="tag">Pourquoi embarqué plutôt que Ghostty externe</span>
+  Un terminal externe (Ghostty) est du «&nbsp;lance et oublie&nbsp;»&nbsp;: l'app perd la main sur le process, ne connaît pas son
+  état et ne voit pas sa sortie. En embarquant le terminal, <strong>on possède le process</strong>&nbsp;: statut par espace,
+  badges, relance, arrêt propre, une seule fenêtre pour tout piloter. Aucune dépendance à Ghostty.
+</div>
+
+<h2 id="reuse">2. Ce qu'on réutilise</h2>
+<ul class="tight">
+  <li><strong>Les espaces &amp; le tracking</strong> — <span class="mono">SpaceStore</span> / <span class="mono">spaces.yaml</span>. Un agent se lance dans <span class="mono">space.destination</span>.</li>
+  <li><strong>La résolution du PATH</strong> — on relance via un login shell (<span class="mono">zsh -lc</span>) pour retrouver <span class="mono">claude</span> (dans <span class="mono">cmux.app</span>) et <span class="mono">codex</span> (homebrew), exactement comme dans un terminal.</li>
+  <li><strong>La fenêtre AppKit</strong> — la <span class="mono">NSWindow</span> pilotée par l'<span class="mono">AppDelegate</span> qu'on vient de mettre en place accueillera la zone terminal.</li>
+  <li><strong>Le modèle <span class="mono">agent_commands</span></strong> — déjà présent dans <span class="mono">settings.yaml</span> avec placeholders (<span class="mono">{space_path}</span>, <span class="mono">{task_value}</span>, <span class="mono">{base_branch}</span>…). Piste pour définir «&nbsp;quels agents proposer&nbsp;» (voir §7).</li>
+</ul>
+
+<h2 id="archi">3. Architecture technique</h2>
+<p>Une couche <strong>Terminal</strong> (rendu + PTY via SwiftTerm) pilotée par un <strong>SessionManager</strong> observable,
+branchée dans l'UI SwiftUI existante.</p>
+
+<div class="diagram">
+  <div class="layer">
+    <div class="node accent">MenuBarView</div>
+    <div class="node accent">MainWindow</div>
+    <div class="node accent">TerminalPane<br><span class="muted">(nouvelle vue)</span></div>
+  </div>
+  <div class="arrow">▼ &nbsp; observe &nbsp; ▼</div>
+  <div class="layer">
+    <div class="node core">SessionManager<br><span class="muted">ObservableObject</span></div>
+  </div>
+  <div class="arrow">▼ &nbsp; possède N &nbsp; ▼</div>
+  <div class="layer">
+    <div class="node">AgentSession #1<br><span class="muted">espace A · claude</span></div>
+    <div class="node">AgentSession #2<br><span class="muted">espace B · codex</span></div>
+    <div class="node muted">…</div>
+  </div>
+  <div class="arrow">▼ &nbsp; chacune enveloppe &nbsp; ▼</div>
+  <div class="layer">
+    <div class="node">LocalProcessTerminalView<br><span class="muted">SwiftTerm · NSView + PTY</span></div>
+  </div>
+  <div class="arrow">▼ &nbsp; spawn &nbsp; ▼</div>
+  <div class="layer">
+    <div class="node">zsh -lc "exec claude"<br><span class="muted">cwd = space.destination</span></div>
+  </div>
+</div>
+
+<h2 id="swiftterm">4. SwiftTerm &amp; le PTY</h2>
+<p><a href="https://github.com/migueldeicaza/SwiftTerm">SwiftTerm</a> (Miguel de Icaza, MIT, dispo en SPM) est un émulateur de
+terminal Swift mûr. Sur macOS il fournit <span class="mono">LocalProcessTerminalView</span> (une <span class="mono">NSView</span>)
+qui&nbsp;: crée un pseudo-terminal (<span class="mono">forkpty</span>), lance un sous-process, gère le rendu (couleurs,
+écran alternatif, scrollback), la souris, le copier-coller et le redimensionnement (<span class="mono">TIOCSWINSZ</span>).</p>
+
+<h3>Points d'intégration clés</h3>
+<ul class="tight">
+  <li>Ajouter la dépendance SPM SwiftTerm au target <span class="mono">Orchestrate</span>.</li>
+  <li>Envelopper <span class="mono">LocalProcessTerminalView</span> dans un <span class="mono">NSViewRepresentable</span> pour l'utiliser en SwiftUI.</li>
+  <li>Lancer&nbsp;: <span class="mono">startProcess(executable: "/bin/zsh", args: ["-lc", "exec &lt;agent&gt;"], environment: …)</span> avec le répertoire courant positionné sur l'espace.</li>
+  <li>Le délégué <span class="mono">LocalProcessTerminalViewDelegate</span> notifie&nbsp;: <span class="mono">processTerminated(exitCode)</span>, <span class="mono">sizeChanged</span>, <span class="mono">setTerminalTitle</span>, <span class="mono">hostCurrentDirectoryUpdate</span> → on s'en sert pour l'état de la session.</li>
+</ul>
+
+<pre>// Esquisse (signatures indicatives, à confirmer au spike)
+final class AgentSession: Identifiable, ObservableObject {
+    let id = UUID()
+    let space: TrackedSpace
+    let agent: AgentDefinition
+    let terminalView: LocalProcessTerminalView
+    @Published var state: State   // .starting / .running / .exited(Int32)
+
+    func start() {
+        let env = Terminal.getEnvironmentVariables(termName: "xterm-256color")
+        terminalView.startProcess(
+            executable: "/bin/zsh",
+            args: ["-lc", "cd \(space.destination.shellQuoted); exec \(agent.command)"],
+            environment: env)
+    }
+    func stop()    { /* SIGINT puis SIGTERM sur le pid du PTY */ }
+    func restart() { /* stop + nouveau process */ }
+}</pre>
+
+<div class="callout warn">
+  <span class="tag">À dérisquer en premier</span>
+  Claude&nbsp;Code et Codex sont des <strong>TUI plein écran</strong> (écran alternatif, souris, redraw). SwiftTerm supporte ça,
+  mais c'est <em>le</em> point à valider par un prototype avant tout le reste (phase&nbsp;0). Si le rendu et l'interaction sont bons,
+  le reste est de la plomberie.
+</div>
+
+<h2 id="data">5. Modèle de données</h2>
+<table>
+  <tr><th>Type</th><th>Rôle</th><th>Champs principaux</th></tr>
+  <tr>
+    <td class="mono">AgentDefinition</td>
+    <td>Un agent proposable (Claude, Codex, custom).</td>
+    <td class="mono">name, command (template + placeholders), icon?</td>
+  </tr>
+  <tr>
+    <td class="mono">AgentSession</td>
+    <td>Une instance d'agent qui tourne, liée à un espace.</td>
+    <td class="mono">id, space, agent, terminalView, state, startedAt</td>
+  </tr>
+  <tr>
+    <td class="mono">SessionManager</td>
+    <td>Source de vérité des sessions (ObservableObject).</td>
+    <td class="mono">sessions: [AgentSession], selected, launch(), close()</td>
+  </tr>
+</table>
+
+<h2 id="ui">6. Interface proposée</h2>
+<p>Trois dispositions envisageables pour la zone terminal dans la fenêtre principale&nbsp;:</p>
+<table>
+  <tr><th>Disposition</th><th>Idée</th><th>Pour / contre</th></tr>
+  <tr>
+    <td><strong>Pane bas</strong></td>
+    <td>Liste des espaces en haut, terminal de l'agent sélectionné en bas (comme un IDE).</td>
+    <td>Familier · garde le contexte espaces visible · terminal parfois à l'étroit.</td>
+  </tr>
+  <tr>
+    <td><strong>Onglets d'agents</strong></td>
+    <td>Une barre d'onglets (un par agent actif), le terminal occupe la fenêtre.</td>
+    <td>Beaucoup de place au terminal · vue «&nbsp;multi-agents&nbsp;» claire · on quitte la vue liste.</td>
+  </tr>
+  <tr>
+    <td><strong>Sidebar + terminal</strong></td>
+    <td>Sidebar = espaces (badge «&nbsp;agent actif&nbsp;»), zone principale = terminal de l'espace sélectionné.</td>
+    <td>Cohérent avec l'UI actuelle (NavigationSplitView) · un agent visible à la fois.</td>
+  </tr>
+</table>
+<div class="callout reco">
+  <span class="tag">Décidé (n°1 &amp; n°2)</span>
+  <strong>Sidebar + terminal</strong> (prolonge le <span class="mono">NavigationSplitView</span> existant). Comme un espace peut héberger
+  <strong>plusieurs agents</strong> (décision n°2), on ajoute au-dessus du terminal un <strong>sélecteur des sessions de l'espace</strong>
+  (petite barre d'onglets), plus une barre d'actions (relancer / arrêter / effacer). Le <strong>badge</strong> dans la sidebar indique
+  le nombre d'agents actifs par espace (et signale «&nbsp;a besoin de toi&nbsp;» le cas échéant).
+</div>
+
+<h2 id="config">7. Config des agents &amp; interop CLI</h2>
+<p>Il faut définir <em>quels agents</em> l'app propose. Trois pistes, avec un enjeu d'interop&nbsp;:</p>
+<div class="callout warn">
+  <span class="tag">Enjeu interop</span>
+  Si on ajoute une clé <span class="mono">agents:</span> dans <span class="mono">settings.yaml</span>, la CLI Rust l'<strong>ignore à la lecture</strong>
+  mais la <strong>supprime en réécriture</strong> (serde ne sérialise que ses champs connus). Donc soit on étend aussi la struct Rust,
+  soit on stocke la config agents <strong>dans un fichier propre à l'app</strong>.
+</div>
+<table>
+  <tr><th>Piste</th><th>Détail</th><th>Verdict</th></tr>
+  <tr><td>Réutiliser <span class="mono">agent_commands</span></td><td>Déjà là, mais clé par <em>type de tâche</em> (review/feature), pas par agent nommé.</td><td>Mauvais fit conceptuel.</td></tr>
+  <tr><td>Nouvelle clé <span class="mono">agents:</span> dans settings.yaml</td><td>Partagé app+CLI, mais impose une modif de la struct Rust pour préserver la clé.</td><td>Propre si on veut le partage CLI.</td></tr>
+  <tr><td class="reco">Fichier app-only</td><td><span class="mono">~/Library/Application Support/com.jlex.orchestrate/agents.yaml</span> — indépendant de la CLI.</td><td class="reco">Le plus simple, zéro risque interop.</td></tr>
+</table>
+<p class="muted">Défauts livrés d'office&nbsp;: <span class="mono">claude</span>, <span class="mono">codex</span>, «&nbsp;Shell&nbsp;» (juste <span class="mono">zsh</span>). Custom éditable ensuite.</p>
+
+<h2 id="decisions">8. Décisions à trancher ensemble</h2>
+<table>
+  <tr><th>#</th><th>Question</th><th>Options</th><th>Ma reco</th><th>Statut</th></tr>
+  <tr><td>1</td><td>Disposition de la zone terminal</td><td>Pane bas · Onglets · Sidebar+terminal</td><td class="reco">Sidebar + terminal</td><td><span class="pill done">décidé</span></td></tr>
+  <tr><td>2</td><td>Plusieurs agents en parallèle par espace&nbsp;?</td><td>1 max · N autorisés</td><td class="reco">N autorisés (plusieurs par espace)</td><td><span class="pill done">décidé</span></td></tr>
+  <tr><td>3</td><td>Où stocker la config des agents</td><td>agent_commands · settings.yaml · fichier app-only</td><td class="reco">Fichier app-only</td><td><span class="pill done">décidé</span></td></tr>
+  <tr><td>4</td><td>À la fermeture de l'app avec agents actifs</td><td>Tuer · Avertir · Laisser tourner détaché</td><td class="reco">Avertir puis tuer proprement</td><td><span class="pill done">décidé</span></td></tr>
+  <tr><td>5</td><td>Se souvenir des agents entre 2 lancements</td><td>Non · Mémoriser quels espaces avaient un agent</td><td class="reco">Non pour la v1</td><td><span class="pill done">décidé</span></td></tr>
+  <tr><td>6</td><td>Agents proposés par défaut</td><td>Claude · Codex · Shell · Custom</td><td class="reco">Les 4</td><td><span class="pill done">décidé</span></td></tr>
+  <tr><td>7</td><td>Événements à notifier</td><td>Tour/tâche fini · Besoin d'input (permission) · Session terminée</td><td class="reco">Les trois, libellés distincts</td><td><span class="pill done">décidé</span></td></tr>
+  <tr><td>8</td><td>Transport hook → app</td><td>Socket local (temps réel) · Fichier watché (<span class="mono">~/.orchestrate/events</span>)</td><td class="reco">Socket local <span class="muted">(retenu)</span></td><td><span class="pill done">décidé</span></td></tr>
+  <tr><td>9</td><td>Injection des hooks / notify</td><td>Par-espace &amp; par-lancement · Global (<span class="mono">~/.claude</span>, <span class="mono">~/.codex</span>)</td><td class="reco">Par-espace / par-lancement (non invasif)</td><td><span class="pill done">décidé</span></td></tr>
+</table>
+
+<h2 id="phases">9. Découpage en phases</h2>
+
+<div class="phase">
+  <div class="n">0</div>
+  <div class="body">
+    <h3>Spike — valider SwiftTerm + les TUI des agents</h3>
+    <p>Ajouter SwiftTerm, afficher <em>un</em> <span class="mono">LocalProcessTerminalView</span> qui lance <span class="mono">zsh -lc "exec claude"</span> dans un espace en dur. Tester aussi Codex.</p>
+    <p class="verify"><b>Vérif&nbsp;:</b> on interagit réellement avec Claude&nbsp;Code dans l'app (rendu, saisie, souris, resize corrects). <em>Décision go/no-go</em> avant le reste.</p>
+  </div>
+</div>
+<div class="phase">
+  <div class="n">1</div>
+  <div class="body">
+    <h3>Modèle de sessions</h3>
+    <p><span class="mono">AgentDefinition</span>, <span class="mono">AgentSession</span> (start/stop/restart + état via délégué), <span class="mono">SessionManager</span> observable, wrapper <span class="mono">NSViewRepresentable</span>.</p>
+    <p class="verify"><b>Vérif&nbsp;:</b> lancer/arrêter/relancer une session par code&nbsp;; l'état passe bien à <span class="mono">.exited</span> quand l'agent se termine.</p>
+  </div>
+</div>
+<div class="phase">
+  <div class="n">2</div>
+  <div class="body">
+    <h3>Intégration UI</h3>
+    <p>Zone terminal dans <span class="mono">MainWindow</span> (disposition retenue), sélecteur de session, action «&nbsp;Lancer un agent&nbsp;» par espace (menu-bar + ligne d'espace), badges d'état dans la sidebar, barre relancer/arrêter/effacer.</p>
+    <p class="verify"><b>Vérif&nbsp;:</b> créer un espace → lancer Claude dessus → le voir tourner, le sélectionner, l'arrêter, en lancer un autre ailleurs.</p>
+  </div>
+</div>
+<div class="phase">
+  <div class="n">3</div>
+  <div class="body">
+    <h3>Config des agents</h3>
+    <p>Charger les <span class="mono">AgentDefinition</span> depuis la source retenue (§7), placeholders rendus (<span class="mono">{space_path}</span>, <span class="mono">{branch}</span>…), UI pour ajouter/éditer un agent custom.</p>
+    <p class="verify"><b>Vérif&nbsp;:</b> ajouter un agent custom (ex. <span class="mono">npm run dev</span>) et le lancer dans un espace.</p>
+  </div>
+</div>
+<div class="phase">
+  <div class="n">4</div>
+  <div class="body">
+    <h3>Notifications &amp; détection de fin</h3>
+    <p>Canal&nbsp;1 (fin de process) immédiat&nbsp;; canal&nbsp;3 (hooks Claude <span class="mono">Stop</span>/<span class="mono">Notification</span> + Codex <span class="mono">notify</span>) via injection par-espace/par-lancement + notifieur → app&nbsp;; badges d'état&nbsp;; notifications macOS (<span class="mono">UserNotifications</span>). Canal&nbsp;2 (OSC) si le spike SwiftTerm le permet facilement.</p>
+    <p class="verify"><b>Vérif&nbsp;:</b> lancer Claude dans un espace, le laisser finir un tour → notification macOS «&nbsp;tour terminé&nbsp;» + badge&nbsp;; déclencher une demande de permission → notification «&nbsp;a besoin de toi&nbsp;».</p>
+  </div>
+</div>
+<div class="phase">
+  <div class="n">5</div>
+  <div class="body">
+    <h3>Finitions</h3>
+    <p>Fermeture propre à la sortie de l'app (avertir + tuer), police/thème du terminal, copier-coller, états vides, remontée d'erreurs, empaquetage.</p>
+    <p class="verify"><b>Vérif&nbsp;:</b> quitter l'app avec 2 agents actifs → avertissement → arrêt propre, aucun process orphelin.</p>
+  </div>
+</div>
+
+<h2 id="risks">10. Risques &amp; inconnues</h2>
+<div class="callout risk">
+  <span class="tag">Risque principal</span>
+  <strong>Rendu des TUI plein écran.</strong> Claude&nbsp;Code / Codex utilisent l'écran alternatif, la souris, des redraws fréquents.
+  À valider dès la phase&nbsp;0. Mitigation&nbsp;: SwiftTerm gère ces cas&nbsp;; si un détail coince, on ajuste (mode souris, <span class="mono">TERM</span>).
+</div>
+<div class="callout risk">
+  <span class="tag">Cycle de vie des process</span>
+  Bien tuer les enfants à la fermeture (pas d'orphelins), gérer un agent qui crashe/quitte, et le cas «&nbsp;espace supprimé pendant qu'un agent tourne dedans&nbsp;».
+</div>
+<div class="callout risk">
+  <span class="tag">Distribution future</span>
+  Aujourd'hui l'app est signée ad-hoc, <strong>non sandboxée</strong> → PTY + exec arbitraire OK. Si un jour on veut notariser avec App&nbsp;Sandbox,
+  le spawn de process devient contraint (entitlements). À garder en tête, non bloquant maintenant.
+</div>
+<div class="callout risk">
+  <span class="tag">Ressources</span>
+  N agents = N process + N vues terminal. Surveiller la conso avec plusieurs agents actifs&nbsp;; envisager de suspendre le rendu des terminaux non visibles.
+</div>
+
+<h2 id="notif">11. Notifications &amp; détection de fin</h2>
+<p>Objectif&nbsp;: être prévenu quand Claude/Codex a <strong>fini son tour</strong>, <strong>a besoin de toi</strong>, ou quand la
+<strong>session s'est terminée</strong>. Comme cmux (lui-même basé sur Ghostty), on combine plusieurs canaux, du plus simple au plus sémantique.
+Puisqu'on <strong>possède l'émulateur et le lancement</strong>, on sait toujours <em>quelle session</em> émet le signal.</p>
+
+<h3>Canal 1 — Fin du process <span class="muted">(gratuit)</span></h3>
+<p>SwiftTerm nous notifie via <span class="mono">processTerminated(exitCode)</span> quand la CLI de l'agent se termine
+= «&nbsp;session terminée&nbsp;». Zéro config, mais sémantique pauvre (ne distingue pas «&nbsp;tour fini, session encore ouverte&nbsp;»).</p>
+
+<h3>Canal 2 — Séquences d'échappement terminal (OSC 9 / 777 / 99)</h3>
+<p>L'un des deux canaux de cmux. Beaucoup d'outils émettent des séquences «&nbsp;notification bureau&nbsp;» directement dans le flux
+terminal. Comme on possède SwiftTerm, on les intercepte à la source&nbsp;: on récupère titre+corps <em>et</em> la session émettrice,
+sans toucher à aucun fichier de config.</p>
+<div class="callout"><span class="tag">Note</span> Peut nécessiter une petite extension de SwiftTerm pour exposer OSC&nbsp;9/777/99 (il gère déjà d'autres OSC).</div>
+
+<h3>Canal 3 — Hooks des agents <span class="muted">(le signal sémantique)</span></h3>
+<p>Le cœur de l'approche cmux, et la réponse à la question&nbsp;: <strong>oui, ce sont des hooks.</strong></p>
+<ul class="tight">
+  <li><strong>Claude&nbsp;Code</strong> — hook <span class="mono">Stop</span> (le tour principal est fini) et hook <span class="mono">Notification</span>
+      (dont le champ <span class="mono">message</span> distingue <span class="mono">permission_request</span> = «&nbsp;a besoin de toi&nbsp;» de l'idle).
+      Le hook reçoit un JSON sur stdin (<span class="mono">session_id</span>, <span class="mono">cwd</span>, <span class="mono">transcript_path</span>…).</li>
+  <li><strong>Codex</strong> — clé <span class="mono">notify</span> appelée sur l'événement <span class="mono">agent-turn-complete</span>, avec un JSON en argument.</li>
+</ul>
+<p><strong>Injection non invasive</strong> (on ne touche pas à la config globale de l'utilisateur)&nbsp;:</p>
+<ul class="tight">
+  <li>Claude&nbsp;: écrire un <span class="mono">.claude/settings.local.json</span> <em>dans l'espace</em> (déjà un clone jetable) avec nos hooks.</li>
+  <li>Codex&nbsp;: passer <span class="mono">-c 'notify=["orchestrate","notify"]'</span> au lancement (override par process, pas de modif de <span class="mono">~/.codex/config.toml</span>).</li>
+</ul>
+
+<h3>Comment l'app reçoit le signal</h3>
+<p>On maîtrise le lancement de l'agent&nbsp;: on injecte dans son environnement <span class="mono">ORCHESTRATE_SESSION_ID</span> (identité)
+et <span class="mono">ORCHESTRATE_SOCK</span> (adresse du socket). Le hook/notify appelle un petit notifieur
+(sous-commande <span class="mono">orchestrate notify …</span> ou script) qui transmet <span class="mono">{session_id, type, title, body}</span>&nbsp;:</p>
+<div class="callout reco">
+  <span class="tag">Transport retenu — socket local (décision n°8)</span>
+  Un <strong>socket de domaine Unix</strong> que l'app ouvre au démarrage&nbsp;; le notifieur s'y connecte et envoie le message en temps réel.
+  <strong>C'est exactement le choix de cmux</strong> (<span class="mono">/tmp/cmux.sock</span> + CLI <span class="mono">cmux notify</span>). Le script teste
+  l'existence du socket et devient un no-op si l'app n'est pas lancée.
+  <em>Fallback simple si besoin&nbsp;:</em> un <strong>fichier</strong> déposé dans <span class="mono">~/.orchestrate/events/</span> et surveillé (FSEvents).
+</div>
+<p><span class="muted">Note&nbsp;: on ne présuppose aucun binaire d'agent particulier — <span class="mono">claude</span>/<span class="mono">codex</span> sont résolus
+via un login shell, comme n'importe quel terminal.</span></p>
+<p>L'app mappe <span class="mono">session_id → AgentSession</span>, met à jour le <strong>badge d'état de l'espace</strong> et poste une
+<strong>notification macOS</strong> (framework <span class="mono">UserNotifications</span>&nbsp;; autorisation demandée une fois&nbsp;; clic → focus l'app + sélectionne la session).
+Le bundle id (<span class="mono">com.jlex.orchestrate.app</span>) est déjà en place.</p>
+
+<div class="callout warn">
+  <span class="tag">Leçon de cmux</span>
+  Un statut «&nbsp;hook-only&nbsp;» peut devenir muet si un hook manque (constaté côté Codex — <a href="https://github.com/manaflow-ai/cmux/issues/3749">issue&nbsp;#3749</a>).
+  D'où l'intérêt de <strong>plusieurs canaux</strong>&nbsp;: hooks (sémantique) + OSC + fin de process (filet de sécurité).
+</div>
+
+<footer class="doc">
+  <p><strong>Décisions closes (1→9).</strong> Prochaine étape&nbsp;: la <strong>phase&nbsp;0 (spike)</strong> — dérisquer SwiftTerm + le rendu des TUI Claude/Codex avant tout le reste.</p>
+  <p>Document&nbsp;: <span class="mono">docs/plan-terminal-embarque.html</span> — brouillon v1, à faire évoluer ensemble.</p>
+</footer>
+
+</div>
+</body>
+</html>

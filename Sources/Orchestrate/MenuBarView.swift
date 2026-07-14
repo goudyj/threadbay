@@ -9,27 +9,27 @@ struct MenuBarView: View {
 
     var body: some View {
         if app.spaces.isEmpty {
-            Text("Aucun espace")
+            Text(app.localized("menu.no_spaces"))
         } else {
             ForEach(app.groups) { group in
                 Section(group.id) {
                     ForEach(group.spaces) { space in
                         Menu(menuTitle(for: space)) {
                             ForEach(app.agents) { agent in
-                                Button("Lancer \(agent.name)") {
+                                Button(app.localized("menu.launch", agent.name)) {
                                     app.launchAgent(agent, in: space)
                                 }
                             }
                             Divider()
                             ForEach(Editor.allCases) { editor in
-                                Button("Ouvrir dans \(editor.displayName)") {
+                                Button(app.localized("menu.open_in", editor.displayName)) {
                                     app.open(editor, space)
                                 }
                             }
                             Divider()
-                            Button("Révéler dans le Finder") { app.reveal(space) }
+                            Button(app.localized("menu.reveal_finder")) { app.reveal(space) }
                             Divider()
-                            Button("Supprimer") { app.delete(space) }
+                            Button(app.localized("common.delete")) { app.delete(space) }
                         }
                     }
                 }
@@ -38,20 +38,20 @@ struct MenuBarView: View {
 
         Divider()
 
-        Button("Nouvel espace…") {
+        Button(app.localized("menu.new_space")) {
             app.pendingNewSpace = true
             app.showMainWindow()
         }
-        Button("Ouvrir la fenêtre") { app.showMainWindow() }
-        Button("Rafraîchir") { app.reload() }
-        Button("Réglages…") {
+        Button(app.localized("menu.open_window")) { app.showMainWindow() }
+        Button(app.localized("common.refresh")) { app.reload() }
+        Button(app.localized("menu.settings")) {
             app.pendingSettings = true
             app.showMainWindow()
         }
 
         Divider()
 
-        Button("Quitter Orchestrate") { NSApplication.shared.terminate(nil) }
+        Button(app.localized("menu.quit")) { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")
     }
 
@@ -60,6 +60,6 @@ struct MenuBarView: View {
         let running = app.sessionManager.runningCount(for: space)
         guard running > 0 else { return space.name }
         let alert = app.sessionManager.needsAttention(space) ? " ⚠" : ""
-        return "\(space.name) — \(running) agent(s)\(alert)"
+        return app.localized("menu.active_agents", space.name, running) + alert
     }
 }

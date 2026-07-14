@@ -10,18 +10,24 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Réglages").font(.title2).bold()
+            Text(app.localized("settings.title")).font(.title2).bold()
 
             Form {
-                Picker("Projet par défaut", selection: defaultBinding) {
-                    Text("Aucun").tag(String?.none)
+                Picker(app.localized("settings.language"), selection: languageBinding) {
+                    ForEach(AppLanguage.allCases) { language in
+                        Text(languageName(language)).tag(language)
+                    }
+                }
+
+                Picker(app.localized("settings.default_project"), selection: defaultBinding) {
+                    Text(app.localized("common.none")).tag(String?.none)
                     ForEach(app.settings.projects) { Text($0.name).tag(Optional($0.name)) }
                 }
             }
 
-            Text("Projets").font(.headline)
+            Text(app.localized("settings.projects")).font(.headline)
             if app.settings.projects.isEmpty {
-                Text("Aucun projet.").foregroundStyle(.secondary)
+                Text(app.localized("settings.no_projects")).foregroundStyle(.secondary)
             } else {
                 List {
                     ForEach(app.settings.projects) { project in
@@ -34,7 +40,7 @@ struct SettingsView: View {
                             Button(role: .destructive) {
                                 app.removeProject(project.name)
                             } label: {
-                                Label("Retirer", systemImage: "trash")
+                                Label(app.localized("common.remove"), systemImage: "trash")
                             }
                             .labelStyle(.iconOnly)
                             .buttonStyle(.borderless)
@@ -45,27 +51,28 @@ struct SettingsView: View {
             }
 
             HStack {
-                Button("Ajouter un projet…") { addProject() }
-                Button("Ouvrir settings.yaml") { app.openSettingsFile() }
+                Button(app.localized("settings.add_project")) { addProject() }
+                Button(app.localized("settings.open_yaml")) { app.openSettingsFile() }
                 Spacer()
             }
 
             Divider()
 
-            Text("Agents").font(.headline)
+            Text(app.localized("settings.agents")).font(.headline)
             AgentsEditor()
 
-            Text("Terminal").font(.headline)
-            Picker("Apparence", selection: terminalThemeBinding) {
-                Text("Système").tag(TerminalTheme.system)
-                Text("Clair").tag(TerminalTheme.light)
-                Text("Sombre").tag(TerminalTheme.dark)
+            Text(app.localized("settings.terminal")).font(.headline)
+            Picker(app.localized("settings.appearance"), selection: terminalThemeBinding) {
+                Text(app.localized("settings.theme.system")).tag(TerminalTheme.system)
+                Text(app.localized("settings.theme.light")).tag(TerminalTheme.light)
+                Text(app.localized("settings.theme.dark")).tag(TerminalTheme.dark)
             }
             .pickerStyle(.segmented)
 
             HStack {
                 Spacer()
-                Button("Fermer") { dismiss() }.keyboardShortcut(.defaultAction)
+                Button(app.localized("common.close")) { dismiss() }
+                    .keyboardShortcut(.defaultAction)
             }
         }
         .padding(20)
@@ -84,13 +91,29 @@ struct SettingsView: View {
             set: { app.setTerminalTheme($0) })
     }
 
+    private var languageBinding: Binding<AppLanguage> {
+        Binding(
+            get: { app.appLanguage },
+            set: { app.setAppLanguage($0) })
+    }
+
+    private func languageName(_ language: AppLanguage) -> String {
+        switch language {
+        case .system: return app.localized("language.system")
+        case .english: return app.localized("language.english")
+        case .french: return app.localized("language.french")
+        case .spanish: return app.localized("language.spanish")
+        case .simplifiedChinese: return app.localized("language.chinese")
+        }
+    }
+
     private func addProject() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        panel.prompt = "Ajouter"
-        panel.message = "Choisis le dossier du dépôt git source"
+        panel.prompt = app.localized("settings.add")
+        panel.message = app.localized("settings.choose_repo")
         if panel.runModal() == .OK, let url = panel.url {
             app.addProject(path: url)
         }
@@ -106,10 +129,10 @@ private struct AgentsEditor: View {
         List {
             ForEach(app.agents.indices, id: \.self) { index in
                 HStack(spacing: 8) {
-                    TextField("Nom", text: binding(index).name)
+                    TextField(app.localized("settings.agent_name"), text: binding(index).name)
                         .frame(width: 130)
                     TextField(
-                        "Commande (vide = shell interactif)",
+                        app.localized("settings.agent_command"),
                         text: binding(index).command
                     )
                     .font(.body.monospaced())
@@ -117,7 +140,7 @@ private struct AgentsEditor: View {
                         app.agents.remove(at: index)
                         app.persistAgents()
                     } label: {
-                        Label("Retirer", systemImage: "trash")
+                        Label(app.localized("common.remove"), systemImage: "trash")
                     }
                     .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
@@ -127,13 +150,14 @@ private struct AgentsEditor: View {
         .frame(minHeight: 130)
 
         HStack {
-            Button("Ajouter un agent") {
+            Button(app.localized("settings.add_agent")) {
                 app.agents.append(
                     AgentDefinition(name: uniqueName(), command: "", kind: .custom))
                 app.persistAgents()
             }
             Spacer()
-            Text("Placeholders : \(CommandTemplate.placeholders.joined(separator: " "))")
+            Text(app.localized(
+                "settings.placeholders", CommandTemplate.placeholders.joined(separator: " ")))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -149,10 +173,11 @@ private struct AgentsEditor: View {
     }
 
     private func uniqueName() -> String {
-        var name = "Nouvel agent"
+        let baseName = app.localized("settings.new_agent")
+        var name = baseName
         var n = 2
         while app.agents.contains(where: { $0.name == name }) {
-            name = "Nouvel agent \(n)"
+            name = "\(baseName) \(n)"
             n += 1
         }
         return name

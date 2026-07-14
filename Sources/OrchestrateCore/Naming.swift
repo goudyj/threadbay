@@ -1,7 +1,6 @@
 import Foundation
 
-/// Space-naming rules, ported 1:1 from the Rust CLI (`src/naming.rs`) so the app
-/// and the CLI produce identical directory/space names.
+/// Space-naming rules for spaces created by the macOS app.
 public enum Naming {
     /// Lowercase; map `a-z0-9` through; map `/ _ space -` to a single `-`
     /// (collapsing runs); drop anything else; trim leading/trailing `-`.
@@ -37,10 +36,13 @@ public enum Naming {
         return output.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
     }
 
-    /// `<project>__feature-<slug>` — the app always creates feature spaces
-    /// (a new branch from a base), matching the CLI's feature naming.
-    public static func featureSpaceName(project: String, branch: String) -> String {
-        "\(project)__feature-\(slugify(branch))"
+    /// The app keeps names task-neutral: `<project>__<branch-slug>`.
+    public static func branchSpaceName(project: String, branch: String) -> String {
+        "\(project)__\(slugify(branch))"
+    }
+
+    public static func pullRequestSpaceName(project: String, number: UInt) -> String {
+        "\(project)__pr-\(number)"
     }
 
     /// Appends `-2`, `-3`, … until the name is free inside `parent`.

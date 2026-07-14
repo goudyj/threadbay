@@ -11,9 +11,13 @@ Un espace créé dans l'app apparaît donc dans `orchestrate space list`, et inv
 ## Fonctionnalités
 
 - **Lister** les espaces, groupés par projet (menu-bar et fenêtre).
-- **Créer** un espace : choix du projet, nom de la nouvelle branche, et **branche de base**
-  (choisie parmi les branches du dépôt). Sous le capot : clone local du dépôt source,
-  remotes repointés vers les vrais upstreams, puis `checkout <base>` + `checkout -b <branche>`.
+- **Créer** un espace depuis une nouvelle branche, une branche locale ou distante existante,
+  ou une pull request GitHub. Les branches sont recherchables et peuvent être actualisées
+  avec un `fetch`. Les pull requests ouvertes sont listées avec leur titre et leur branche ;
+  un numéro exact permet aussi de retrouver une PR absente de la liste. Les noms créés par
+  l'app n'ajoutent pas de préfixe de type (`feature`/`review`).
+- **Choisir la langue** de l'interface dans les Réglages : langue de macOS (par défaut),
+  anglais, français, espagnol ou chinois simplifié.
 - **Lancer des agents** (Claude Code, Codex, shell, commande custom) dans un **terminal
   embarqué** (SwiftTerm), plusieurs par espace : sélecteur de sessions, relancer/arrêter/
   effacer, badges d'agents actifs dans la sidebar et le menu-bar.
@@ -47,23 +51,22 @@ Voir le plan : `docs/plan-terminal-embarque.html`. En bref :
 
 - macOS 14+
 - `git` dans le PATH (résolu via un login shell, comme dans un terminal)
+- GitHub CLI (`gh`) dans le PATH pour créer un espace depuis une pull request
 - `code` / `zed` / `cursor` pour les actions d'ouverture correspondantes
 
 ## Développement
 
 ```bash
-cd macos
 swift build          # compile
 swift test           # tests unitaires + test d'intégration git (hors-ligne)
 swift run Orchestrate # lance l'app depuis le terminal
 ```
 
-Le paquet est aussi ouvrable directement dans Xcode (`File ▸ Open` → `macos/Package.swift`).
+Le paquet est aussi ouvrable directement dans Xcode (`File ▸ Open` → `Package.swift`).
 
 ## Construire l'app double-cliquable
 
 ```bash
-cd macos
 ./scripts/build-app.sh   # produit Orchestrate.app (menu-bar, sans icône Dock)
 open Orchestrate.app
 ```

@@ -8,11 +8,13 @@ import SwiftUI
 @MainActor
 final class AppState: ObservableObject {
     private static let terminalThemeKey = "terminalTheme"
+    private static let appLanguageKey = "appLanguage"
 
     @Published var settings = Settings()
     @Published var spaces: [TrackedSpace] = []
     @Published var agents: [AgentDefinition] = []
     @Published private(set) var terminalTheme: TerminalTheme
+    @Published private(set) var appLanguage: AppLanguage
     @Published var errorMessage: String?
     @Published var isBusy = false
 
@@ -33,16 +35,21 @@ final class AppState: ObservableObject {
 
     private let spaceService = SpaceService()
     private let gitService = GitService()
+    private let githubService = GitHubService()
     private let openService = OpenService()
 
     init() {
+        appLanguage = AppLanguage(
+            rawValue: UserDefaults.standard.string(forKey: Self.appLanguageKey) ?? ""
+        ) ?? .system
         terminalTheme = TerminalTheme(
             rawValue: UserDefaults.standard.string(forKey: Self.terminalThemeKey) ?? ""
         ) ?? .system
         reload()
+        sessionManager.setLanguage(appLanguage)
         sessionManager.setTerminalTheme(terminalTheme)
-        sessionManager.onError = { [weak self] message in
-            self?.errorMessage = message
+        sessionManager.onError = { [weak self] error in
+            self?.errorMessage = self?.localizedError(error)
         }
         sessionManager.onFocusSession = { [weak self] session in
             self?.pendingSelectSpace = session.space.name
@@ -69,16 +76,27 @@ final class AppState: ObservableObject {
             spaces = try SpaceStore.load().spaces
             agents = try AgentLibrary.load().agents
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = localizedError(error)
         }
     }
 
     // MARK: - Git queries (for the create form)
 
-    func listBranches(project: Project) async -> [String] {
+    func listBranches(project: Project) async -> [GitBranch] {
         let git = gitService
         let repo = URL(fileURLWithPath: project.path)
         return await Task.detached { (try? git.listBranches(repo: repo)) ?? [] }.value
+    }
+
+    func refreshBranches(project: Project) async -> [GitBranch]? {
+        let git = gitService
+        let repo = URL(fileURLWithPath: project.path)
+        do {
+            return try await Task.detached { try git.refreshBranches(repo: repo) }.value
+        } catch {
+            errorMessage = localizedError(error)
+            return nil
+        }
     }
 
     func currentBranch(project: Project) async -> String? {
@@ -87,22 +105,46 @@ final class AppState: ObservableObject {
         return await Task.detached { git.currentBranch(repo: repo) }.value
     }
 
+    // MARK: - GitHub queries (for the pull-request selector)
+
+    func listPullRequests(project: Project) async -> [PullRequestSummary]? {
+        let github = githubService
+        let repo = URL(fileURLWithPath: project.path)
+        do {
+            return try await Task.detached {
+                try github.listOpenPullRequests(repo: repo)
+            }.value
+        } catch {
+            errorMessage = localizedError(error)
+            return nil
+        }
+    }
+
+    /// Exact-number lookups are speculative while the user types, so an
+    /// unknown PR is an empty result rather than a global error alert.
+    func pullRequest(project: Project, number: UInt) async -> PullRequestSummary? {
+        let github = githubService
+        let repo = URL(fileURLWithPath: project.path)
+        return await Task.detached {
+            try? github.pullRequest(number: number, repo: repo)
+        }.value
+    }
+
     // MARK: - Mutations
 
     /// Returns true on success. On failure sets `errorMessage`.
-    func createSpace(project: Project, branchName: String, baseBranch: String) async -> Bool {
+    func createSpace(project: Project, creation: SpaceCreation) async -> Bool {
         isBusy = true
         defer { isBusy = false }
         let service = spaceService
         do {
             _ = try await Task.detached {
-                try service.create(
-                    project: project, branchName: branchName, baseBranch: baseBranch)
+                try service.create(project: project, creation: creation)
             }.value
             reload()
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = localizedError(error)
             return false
         }
     }
@@ -116,7 +158,7 @@ final class AppState: ObservableObject {
                 try await Task.detached { try service.delete(space) }.value
                 reload()
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = localizedError(error)
             }
         }
     }
@@ -133,7 +175,7 @@ final class AppState: ObservableObject {
         do {
             try AgentLibrary(agents: agents).save()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = localizedError(error)
         }
     }
 
@@ -141,6 +183,16 @@ final class AppState: ObservableObject {
         terminalTheme = theme
         UserDefaults.standard.set(theme.rawValue, forKey: Self.terminalThemeKey)
         sessionManager.setTerminalTheme(theme)
+    }
+
+    func setAppLanguage(_ language: AppLanguage) {
+        appLanguage = language
+        UserDefaults.standard.set(language.rawValue, forKey: Self.appLanguageKey)
+        sessionManager.setLanguage(language)
+    }
+
+    func localized(_ key: String, _ arguments: CVarArg...) -> String {
+        L10n.string(key, language: appLanguage, arguments: arguments)
     }
 
     // MARK: - Open actions
@@ -152,7 +204,7 @@ final class AppState: ObservableObject {
             do {
                 try await Task.detached { try service.open(editor, at: path) }.value
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = localizedError(error)
             }
         }
     }
@@ -164,7 +216,7 @@ final class AppState: ObservableObject {
             do {
                 try await Task.detached { try service.revealInFinder(path) }.value
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = localizedError(error)
             }
         }
     }
@@ -175,14 +227,14 @@ final class AppState: ObservableObject {
         do {
             try settings.save()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = localizedError(error)
         }
     }
 
     func addProject(path: URL) {
         let name = path.lastPathComponent
         guard !settings.projects.contains(where: { $0.name == name }) else {
-            errorMessage = "Un projet nommé « \(name) » existe déjà."
+            errorMessage = localized("error.project_exists", name)
             return
         }
         settings.projects.append(Project(name: name, path: path.path))
@@ -208,14 +260,53 @@ final class AppState: ObservableObject {
     func openSettingsFile() {
         NSWorkspace.shared.open(Paths.settingsFile)
     }
+
+    private func localizedError(_ error: Error) -> String {
+        if let error = error as? SpaceServiceError {
+            switch error {
+            case .emptyBranchName:
+                return localized("error.branch_empty")
+            case .emptyBaseBranch:
+                return localized("error.base_branch_empty")
+            case .invalidPullRequest:
+                return localized("error.invalid_pr")
+            case .destinationExists(let path):
+                return localized("error.destination_exists", path)
+            }
+        }
+
+        if let error = error as? ShellError {
+            switch error {
+            case .toolNotFound(let tool):
+                return localized("error.tool_not_found", tool)
+            case .commandFailed(let command, let stderr):
+                let detail = stderr.isEmpty ? "" : "\n\(stderr)"
+                return localized("error.command_failed", command, detail)
+            }
+        }
+
+        if let error = error as? EventSocketServer.SocketError {
+            switch error {
+            case .creationFailed:
+                return localized("error.event_socket_creation")
+            case .pathTooLong(let path):
+                return localized("error.event_socket_path", path)
+            case .bindFailed(let path):
+                return localized("error.event_socket_bind", path)
+            }
+        }
+
+        return error.localizedDescription
+    }
 }
 
 /// Formats a stored RFC3339 timestamp for display; falls back to the raw string.
-func formatCreatedAt(_ raw: String) -> String {
+func formatCreatedAt(_ raw: String, locale: Locale) -> String {
     let parser = ISO8601DateFormatter()
     parser.formatOptions = [.withInternetDateTime]
     guard let date = parser.date(from: raw) else { return raw }
     let out = DateFormatter()
+    out.locale = locale
     out.dateStyle = .medium
     out.timeStyle = .short
     return out.string(from: date)

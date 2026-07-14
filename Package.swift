@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "Orchestrate",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     dependencies: [
         .package(url: "https://github.com/jpsim/Yams.git", from: "5.1.0"),
@@ -15,7 +16,8 @@ let package = Package(
         ),
         .executableTarget(
             name: "Orchestrate",
-            dependencies: ["OrchestrateCore", "SwiftTerm"]
+            dependencies: ["OrchestrateCore", "SwiftTerm"],
+            resources: [.process("Resources")]
         ),
         .testTarget(
             name: "OrchestrateCoreTests",

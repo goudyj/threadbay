@@ -28,6 +28,49 @@ public struct Project: Codable, Identifiable, Hashable, Sendable {
     }
 }
 
+/// A branch together with the repository location it came from. Keeping this
+/// provenance avoids silently treating a diverged local and remote branch as
+/// the same checkout target.
+public struct GitBranch: Identifiable, Hashable, Sendable {
+    public enum Location: Hashable, Sendable {
+        case local
+        case remote(String)
+    }
+
+    public let name: String
+    public let location: Location
+
+    public var id: String {
+        switch location {
+        case .local:
+            return "local:\(name)"
+        case .remote(let remote):
+            return "remote:\(remote)/\(name)"
+        }
+    }
+
+    public var referenceName: String {
+        switch location {
+        case .local:
+            return name
+        case .remote(let remote):
+            return "\(remote)/\(name)"
+        }
+    }
+
+    public init(name: String, location: Location) {
+        self.name = name
+        self.location = location
+    }
+}
+
+/// The three space creation flows exposed by the macOS app.
+public enum SpaceCreation: Hashable, Sendable {
+    case feature(branchName: String, base: GitBranch)
+    case existingBranch(GitBranch)
+    case pullRequest(UInt)
+}
+
 /// Optional per-task agent commands. Preserved on round-trip even though the app
 /// does not use them, so saving settings from the app never drops CLI config.
 public struct AgentCommands: Codable, Hashable, Sendable {

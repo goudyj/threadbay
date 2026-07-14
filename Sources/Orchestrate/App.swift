@@ -45,11 +45,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let running = appState.sessionManager.runningCount
         if running > 0 {
             let alert = NSAlert()
-            alert.messageText = "Quitter Orchestrate ?"
-            alert.informativeText =
-                "\(running) agent(s) actif(s) seront arrêtés."
-            alert.addButton(withTitle: "Quitter")
-            alert.addButton(withTitle: "Annuler")
+            alert.messageText = appState.localized("quit.title")
+            alert.informativeText = appState.localized("quit.active_agents", running)
+            alert.addButton(withTitle: appState.localized("quit.confirm"))
+            alert.addButton(withTitle: appState.localized("common.cancel"))
             NSApp.activate(ignoringOtherApps: true)
             guard alert.runModal() == .alertFirstButtonReturn else {
                 return .terminateCancel

@@ -10,13 +10,14 @@ final class SessionManager: ObservableObject {
     @Published var selectedID: UUID?
 
     /// Installed by AppState to surface launch errors in the UI.
-    var onError: ((String) -> Void)?
+    var onError: ((Error) -> Void)?
     /// Installed by AppState; brings the window up and selects a space.
     var onFocusSession: ((AgentSession) -> Void)?
 
     let notifications = NotificationService()
     private var socketServer: EventSocketServer?
     private var terminalTheme: TerminalTheme = .system
+    private var language: AppLanguage = .system
 
     var selected: AgentSession? {
         sessions.first { $0.id == selectedID }
@@ -64,7 +65,7 @@ final class SessionManager: ObservableObject {
         } catch {
             // Hooks become no-ops without the socket; channel 1 (process end)
             // still works, so this is not fatal.
-            onError?(error.localizedDescription)
+            onError?(error)
         }
     }
 
@@ -92,7 +93,7 @@ final class SessionManager: ObservableObject {
             select(session.id)
             session.start()
         } catch {
-            onError?(error.localizedDescription)
+            onError?(error)
         }
     }
 
@@ -121,6 +122,11 @@ final class SessionManager: ObservableObject {
     func setTerminalTheme(_ theme: TerminalTheme) {
         terminalTheme = theme
         sessions.forEach { $0.applyTheme(theme) }
+        objectWillChange.send()
+    }
+
+    func setLanguage(_ language: AppLanguage) {
+        self.language = language
         objectWillChange.send()
     }
 
@@ -161,7 +167,7 @@ final class SessionManager: ObservableObject {
             session.isWorking = false
             session.attention = .turnEnded
             notifications.post(
-                title: "\(session.agent.name) — tour terminé",
+                title: localized("notification.turn_completed", session.agent.name),
                 body: event.message ?? session.space.name,
                 sessionID: session.id)
         case .needsInput:
@@ -169,7 +175,7 @@ final class SessionManager: ObservableObject {
             session.isWorking = false
             session.attention = .needsInput
             notifications.post(
-                title: "\(session.agent.name) — a besoin de toi",
+                title: localized("notification.needs_input", session.agent.name),
                 body: event.message ?? session.space.name,
                 sessionID: session.id)
         case .unknown:
@@ -182,10 +188,14 @@ final class SessionManager: ObservableObject {
         objectWillChange.send()
         guard case .exited(let code) = session.state, !session.stopRequested else { return }
         session.attention = .sessionEnded
-        let detail = code.map { " (code \($0))" } ?? ""
+        let detail = code.map { localized("notification.exit_code", $0) } ?? ""
         notifications.post(
-            title: "\(session.agent.name) — session terminée\(detail)",
+            title: localized("notification.session_ended", session.agent.name, detail),
             body: session.space.name,
             sessionID: session.id)
+    }
+
+    private func localized(_ key: String, _ arguments: CVarArg...) -> String {
+        L10n.string(key, language: language, arguments: arguments)
     }
 }

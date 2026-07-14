@@ -6,10 +6,16 @@ import Foundation
 /// to `handler` on a background queue.
 public final class EventSocketServer: @unchecked Sendable {
     public enum SocketError: Error, LocalizedError {
-        case failed(String)
+        case creationFailed
+        case pathTooLong(String)
+        case bindFailed(String)
+
         public var errorDescription: String? {
-            if case .failed(let step) = self { return "Socket d'événements : échec \(step)." }
-            return nil
+            switch self {
+            case .creationFailed: return "Event socket creation failed."
+            case .pathTooLong(let path): return "Event socket path is too long: \(path)"
+            case .bindFailed(let path): return "Event socket bind/listen failed: \(path)"
+            }
         }
     }
 
@@ -33,7 +39,7 @@ public final class EventSocketServer: @unchecked Sendable {
         unlink(path)
 
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard fd >= 0 else { throw SocketError.failed("socket()") }
+        guard fd >= 0 else { throw SocketError.creationFailed }
 
         var addr = sockaddr_un()
         addr.sun_family = sa_family_t(AF_UNIX)
@@ -41,7 +47,7 @@ public final class EventSocketServer: @unchecked Sendable {
         let bytes = Array(path.utf8)
         guard bytes.count <= maxLen else {
             close(fd)
-            throw SocketError.failed("chemin trop long (\(path))")
+            throw SocketError.pathTooLong(path)
         }
         withUnsafeMutableBytes(of: &addr.sun_path) { dst in
             dst.copyBytes(from: bytes)
@@ -54,7 +60,7 @@ public final class EventSocketServer: @unchecked Sendable {
         }
         guard bound == 0, listen(fd, 16) == 0 else {
             close(fd)
-            throw SocketError.failed("bind/listen sur \(path)")
+            throw SocketError.bindFailed(path)
         }
 
         listenFD = fd
