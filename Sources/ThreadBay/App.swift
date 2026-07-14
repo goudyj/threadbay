@@ -1,4 +1,5 @@
 import AppKit
+import ThreadBayCore
 import SwiftUI
 
 @main
@@ -6,7 +7,7 @@ struct ThreadBayApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("ThreadBay", systemImage: "square.stack.3d.up.fill") {
+        MenuBarExtra(AppEnvironment.current.displayName, systemImage: "square.stack.3d.up.fill") {
             MenuBarView().environmentObject(appDelegate.appState)
         }
     }
@@ -71,7 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let hosting = NSHostingController(
                 rootView: MainWindow().environmentObject(appState))
             let window = NSWindow(contentViewController: hosting)
-            window.title = "ThreadBay"
+            window.title = AppEnvironment.current.displayName
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
             window.setContentSize(NSSize(width: 1060, height: 640))
             window.isReleasedWhenClosed = false

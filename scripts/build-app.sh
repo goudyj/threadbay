@@ -1,31 +1,49 @@
 #!/bin/bash
-# Builds the executables and wraps them into a double-clickable ThreadBay.app
+# Builds the executables and wraps them into a double-clickable macOS app
 # with LSUIElement (menu-bar app, no Dock icon). Ad-hoc signs it so it launches
 # locally without Gatekeeper prompts.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-APP_NAME="ThreadBay"
+EXECUTABLE_NAME="ThreadBay"
 HELPER_NAME="ThreadBayNotify"
-APP_DIR="${APP_NAME}.app"
-BUNDLE_ID="com.jlex.threadbay.app"
 VERSION="0.1.0"
 CONFIGURATION="${1:-release}"
+PROFILE="${2:-production}"
 
 case "${CONFIGURATION}" in
     debug|release) ;;
     *)
-        echo "Usage: $0 [debug|release]" >&2
+        echo "Usage: $0 [debug|release] [production|dev]" >&2
         exit 2
         ;;
 esac
+
+case "${PROFILE}" in
+    production)
+        APP_NAME="ThreadBay"
+        BUNDLE_ID="com.jlex.threadbay.app"
+        APP_ENVIRONMENT="production"
+        ;;
+    dev)
+        APP_NAME="ThreadBay Dev"
+        BUNDLE_ID="com.jlex.threadbay.app.dev"
+        APP_ENVIRONMENT="development"
+        ;;
+    *)
+        echo "Usage: $0 [debug|release] [production|dev]" >&2
+        exit 2
+        ;;
+esac
+
+APP_DIR="${APP_NAME}.app"
 
 echo "→ swift build -c ${CONFIGURATION}"
 swift build -c "${CONFIGURATION}"
 
 BIN_DIR="$(swift build -c "${CONFIGURATION}" --show-bin-path)"
-BIN_PATH="${BIN_DIR}/${APP_NAME}"
+BIN_PATH="${BIN_DIR}/${EXECUTABLE_NAME}"
 HELPER_PATH="${BIN_DIR}/${HELPER_NAME}"
 
 echo "→ assembling ${APP_DIR}"
@@ -33,7 +51,7 @@ rm -rf "${APP_DIR}"
 mkdir -p "${APP_DIR}/Contents/MacOS"
 mkdir -p "${APP_DIR}/Contents/Resources/bin"
 
-cp "${BIN_PATH}" "${APP_DIR}/Contents/MacOS/${APP_NAME}"
+cp "${BIN_PATH}" "${APP_DIR}/Contents/MacOS/${EXECUTABLE_NAME}"
 cp "${HELPER_PATH}" "${APP_DIR}/Contents/Resources/bin/threadbay-notify"
 
 # SwiftPM keeps localized resources in a sibling bundle. Bundle.module looks
@@ -55,7 +73,7 @@ cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
     <key>CFBundleIdentifier</key>
     <string>${BUNDLE_ID}</string>
     <key>CFBundleExecutable</key>
-    <string>${APP_NAME}</string>
+    <string>${EXECUTABLE_NAME}</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -68,6 +86,8 @@ cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>ThreadBayEnvironment</key>
+    <string>${APP_ENVIRONMENT}</string>
 </dict>
 </plist>
 PLIST

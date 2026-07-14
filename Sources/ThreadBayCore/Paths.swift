@@ -1,39 +1,29 @@
 import Foundation
 
-/// Filesystem locations shared with the `threadbay` Rust CLI. These must match
-/// the CLI exactly so both tools read and write the same state.
+/// Filesystem locations shared with the `threadbay` Rust CLI in production.
+/// Development builds use a separate namespace so they cannot mutate live data.
 public enum Paths {
-    /// `~/Library/Application Support/com.jlex.threadbay/settings.yaml`
-    /// (matches the `directories` crate with qualifier `com`, org `jlex`, app `threadbay`).
     public static var settingsFile: URL {
-        applicationSupport
-            .appendingPathComponent("com.jlex.threadbay", isDirectory: true)
-            .appendingPathComponent("settings.yaml", isDirectory: false)
+        currentLocations.settingsFile
     }
 
-    /// `~/.threadbay/spaces.yaml`
     public static var spacesFile: URL {
-        home
-            .appendingPathComponent(".threadbay", isDirectory: true)
-            .appendingPathComponent("spaces.yaml", isDirectory: false)
+        currentLocations.spacesFile
     }
 
-    /// `~/Library/Application Support/com.jlex.threadbay/agents.yaml`
     /// App-only agent definitions — deliberately a separate file so the Rust CLI
     /// never rewrites (and drops) it when saving `settings.yaml`.
     public static var agentsFile: URL {
-        appDirectory.appendingPathComponent("agents.yaml", isDirectory: false)
+        currentLocations.agentsFile
     }
 
-    /// `~/Library/Application Support/com.jlex.threadbay/threadbay.sock`
     /// Unix domain socket the app listens on for agent hook events.
     public static var eventSocket: URL {
-        appDirectory.appendingPathComponent("threadbay.sock", isDirectory: false)
+        currentLocations.eventSocket
     }
 
-    /// `~/Library/Application Support/com.jlex.threadbay/`
     public static var appDirectory: URL {
-        applicationSupport.appendingPathComponent("com.jlex.threadbay", isDirectory: true)
+        currentLocations.appDirectory
     }
 
     public static var home: URL {
@@ -43,5 +33,37 @@ public enum Paths {
     private static var applicationSupport: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? home.appendingPathComponent("Library/Application Support", isDirectory: true)
+    }
+
+    struct Locations: Equatable {
+        let settingsFile: URL
+        let spacesFile: URL
+        let agentsFile: URL
+        let eventSocket: URL
+        let appDirectory: URL
+    }
+
+    static func locations(
+        environment: AppEnvironment,
+        home: URL,
+        applicationSupport: URL
+    ) -> Locations {
+        let appDirectory = applicationSupport.appendingPathComponent(
+            environment.appDirectoryName, isDirectory: true)
+        return Locations(
+            settingsFile: appDirectory.appendingPathComponent("settings.yaml"),
+            spacesFile: home
+                .appendingPathComponent(environment.spacesDirectoryName, isDirectory: true)
+                .appendingPathComponent("spaces.yaml"),
+            agentsFile: appDirectory.appendingPathComponent("agents.yaml"),
+            eventSocket: appDirectory.appendingPathComponent("threadbay.sock"),
+            appDirectory: appDirectory)
+    }
+
+    private static var currentLocations: Locations {
+        locations(
+            environment: AppEnvironment.current,
+            home: home,
+            applicationSupport: applicationSupport)
     }
 }

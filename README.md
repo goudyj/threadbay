@@ -34,10 +34,32 @@ swift test
 ./scripts/run-app.sh
 ```
 
-Swift Package Manager downloads dependencies automatically during the first build. The launcher builds in debug mode, then opens the macOS app bundle, which is required to test notifications. To create a release build without launching it:
+Swift Package Manager downloads dependencies automatically during the first build. The launcher builds and opens `ThreadBay Dev.app`, which has its own macOS identity and storage. It can run alongside the production app without stopping agents that are already running there.
+
+Development data is isolated from production data:
+
+- `~/Library/Application Support/com.jlex.threadbay.dev/settings.yaml`
+- `~/.threadbay-dev/spaces.yaml`
+- `~/Library/Application Support/com.jlex.threadbay.dev/agents.yaml`
+
+The development app starts with an empty configuration. Add a disposable project from its settings before testing destructive operations such as deleting spaces or branches.
+
+To create a release build without launching it:
 
 ```bash
 ./scripts/build-app.sh
 ```
 
 The script compiles in release mode, assembles `ThreadBay.app` at the project root, and signs it locally. You can then move it to the `Applications` folder.
+
+The existing explicit debug build also remains available and still targets the production app bundle:
+
+```bash
+./scripts/build-app.sh debug
+```
+
+To assemble the isolated development bundle without launching it, pass the `dev` profile:
+
+```bash
+./scripts/build-app.sh debug dev
+```
