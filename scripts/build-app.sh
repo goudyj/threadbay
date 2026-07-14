@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds a release binary and wraps it into a double-clickable ThreadBay.app
+# Builds the release executables and wraps them into a double-clickable ThreadBay.app
 # with LSUIElement (menu-bar app, no Dock icon). Ad-hoc signs it so it launches
 # locally without Gatekeeper prompts.
 set -euo pipefail
@@ -7,6 +7,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 APP_NAME="ThreadBay"
+HELPER_NAME="ThreadBayNotify"
 APP_DIR="${APP_NAME}.app"
 BUNDLE_ID="com.jlex.threadbay.app"
 VERSION="0.1.0"
@@ -16,13 +17,15 @@ swift build -c release
 
 BIN_DIR="$(swift build -c release --show-bin-path)"
 BIN_PATH="${BIN_DIR}/${APP_NAME}"
+HELPER_PATH="${BIN_DIR}/${HELPER_NAME}"
 
 echo "→ assembling ${APP_DIR}"
 rm -rf "${APP_DIR}"
 mkdir -p "${APP_DIR}/Contents/MacOS"
-mkdir -p "${APP_DIR}/Contents/Resources"
+mkdir -p "${APP_DIR}/Contents/Resources/bin"
 
 cp "${BIN_PATH}" "${APP_DIR}/Contents/MacOS/${APP_NAME}"
+cp "${HELPER_PATH}" "${APP_DIR}/Contents/Resources/bin/threadbay-notify"
 
 # SwiftPM keeps localized resources in a sibling bundle. Bundle.module looks
 # for it in Contents/Resources when the executable is wrapped as an app.
@@ -61,6 +64,8 @@ cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
 PLIST
 
 echo "→ ad-hoc code signing"
+codesign --force --sign - "${APP_DIR}/Contents/Resources/bin/threadbay-notify" >/dev/null 2>&1 || \
+    echo "  (helper codesign skipped: $?)"
 codesign --force --sign - "${APP_DIR}" >/dev/null 2>&1 || \
     echo "  (codesign skipped: $?)"
 

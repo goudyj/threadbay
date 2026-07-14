@@ -31,12 +31,6 @@ public enum Paths {
         appDirectory.appendingPathComponent("threadbay.sock", isDirectory: false)
     }
 
-    /// `~/Library/Application Support/com.jlex.threadbay/threadbay-notify.sh`
-    /// Notifier script injected into agent hooks; forwards events to the socket.
-    public static var notifierScript: URL {
-        appDirectory.appendingPathComponent("threadbay-notify.sh", isDirectory: false)
-    }
-
     /// `~/Library/Application Support/com.jlex.threadbay/`
     public static var appDirectory: URL {
         applicationSupport.appendingPathComponent("com.jlex.threadbay", isDirectory: true)

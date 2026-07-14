@@ -58,7 +58,8 @@ final class CommandTemplateTests: XCTestCase {
 
 final class HookInjectionTests: XCTestCase {
     func testCreatesClaudeSettingsFromScratch() throws {
-        let data = try HookInjection.claudeSettings(merging: nil, scriptPath: "/tmp/notify.sh")
+        let data = try HookInjection.claudeSettings(
+            merging: nil, notifierPath: "/tmp/threadbay-notify")
         let root = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let hooks = try XCTUnwrap(root["hooks"] as? [String: Any])
         XCTAssertNotNil(hooks["UserPromptSubmit"])
@@ -66,7 +67,9 @@ final class HookInjectionTests: XCTestCase {
         XCTAssertNotNil(hooks["Notification"])
         let stop = try XCTUnwrap(hooks["Stop"] as? [[String: Any]])
         let entries = try XCTUnwrap(stop.first?["hooks"] as? [[String: Any]])
-        XCTAssertEqual(entries.first?["command"] as? String, "'/tmp/notify.sh' claude-stop")
+        XCTAssertEqual(
+            entries.first?["command"] as? String,
+            "'/tmp/threadbay-notify' claude-stop")
     }
 
     func testMergePreservesForeignKeys() throws {
@@ -74,7 +77,8 @@ final class HookInjectionTests: XCTestCase {
             "permissions": ["allow": ["Bash"]],
             "hooks": ["PreToolUse": [["hooks": [["type": "command", "command": "echo hi"]]]]],
         ])
-        let data = try HookInjection.claudeSettings(merging: existing, scriptPath: "/tmp/n.sh")
+        let data = try HookInjection.claudeSettings(
+            merging: existing, notifierPath: "/tmp/threadbay-notify")
         let root = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertNotNil(root["permissions"])
         let hooks = try XCTUnwrap(root["hooks"] as? [String: Any])
@@ -84,31 +88,23 @@ final class HookInjectionTests: XCTestCase {
 
     func testInjectsIntoSpaceDirectory() throws {
         let dir = try makeTempDir()
-        try HookInjection.injectClaudeHooks(spaceDir: dir, scriptPath: "/tmp/n.sh")
+        try HookInjection.injectClaudeHooks(
+            spaceDir: dir, notifierPath: "/tmp/threadbay-notify")
         let file = dir.appendingPathComponent(".claude/settings.local.json")
         XCTAssertTrue(FileManager.default.fileExists(atPath: file.path))
         // Idempotent: a second injection still parses and keeps both hooks.
-        try HookInjection.injectClaudeHooks(spaceDir: dir, scriptPath: "/tmp/n.sh")
+        try HookInjection.injectClaudeHooks(
+            spaceDir: dir, notifierPath: "/tmp/threadbay-notify")
         let root = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
         let hooks = try XCTUnwrap(root["hooks"] as? [String: Any])
         XCTAssertEqual(hooks.count, 3)
     }
 
-    func testInstallsExecutableNotifier() throws {
-        let url = try makeTempDir().appendingPathComponent("notify.sh")
-        try HookInjection.installNotifier(at: url)
-        XCTAssertTrue(FileManager.default.isExecutableFile(atPath: url.path))
-        // Idempotent.
-        try HookInjection.installNotifier(at: url)
-        let content = try String(contentsOf: url, encoding: .utf8)
-        XCTAssertTrue(content.contains("THREADBAY_SOCK"))
-    }
-
     func testCodexOverride() {
         XCTAssertEqual(
-            HookInjection.codexNotifyOverride(scriptPath: "/tmp/n.sh"),
-            "notify=[\"/tmp/n.sh\",\"codex-notify\"]")
+            HookInjection.codexNotifyOverride(notifierPath: "/tmp/threadbay-notify"),
+            "notify=[\"/tmp/threadbay-notify\",\"codex-notify\"]")
     }
 }
 
@@ -154,8 +150,9 @@ final class AgentEventTests: XCTestCase {
 }
 
 final class EventSocketServerTests: XCTestCase {
-    func testReceivesOneEventPerConnection() throws {
+    func testReceivesEventFromNotifierClient() throws {
         let path = "/tmp/threadbay-test-\(UUID().uuidString.prefix(8)).sock"
+        let sessionID = UUID()
         let received = expectation(description: "event received")
         let box = ReceivedBox()
         let server = EventSocketServer(path: path) { data in
@@ -165,15 +162,20 @@ final class EventSocketServerTests: XCTestCase {
         try server.start()
         defer { server.stop() }
 
-        // Send through the same route the notifier script uses.
-        let send = Process()
-        send.executableURL = URL(fileURLWithPath: "/bin/sh")
-        send.arguments = ["-c", "printf '{\"ping\":1}' | /usr/bin/nc -U '\(path)' -w 2"]
-        try send.run()
-        send.waitUntilExit()
+        try AgentEventNotifier.send(
+            sessionID: sessionID,
+            kind: HookInjection.claudeNotificationKind,
+            payload: Data(#"{"message":"Permission needed"}"#.utf8),
+            socketPath: path)
 
         wait(for: [received], timeout: 5)
-        XCTAssertEqual(box.all(), [Data("{\"ping\":1}".utf8)])
+        let data = try XCTUnwrap(box.all().first)
+        XCTAssertEqual(
+            AgentEvent.parse(data),
+            AgentEvent(
+                sessionID: sessionID,
+                kind: .needsInput,
+                message: "Permission needed"))
     }
 
     private final class ReceivedBox: @unchecked Sendable {

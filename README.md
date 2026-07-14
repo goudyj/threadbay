@@ -41,7 +41,8 @@ Voir le plan : `docs/plan-terminal-embarque.html`. En bref :
 - **Détection de fin** par trois canaux : fin de process (SwiftTerm), hooks **Claude Code**
   (`Stop`, `Notification` — injectés dans `.claude/settings.local.json` *de l'espace*, la
   config globale n'est pas touchée) et **Codex** (`-c notify=…` par process). Les hooks
-  appellent `threadbay-notify.sh`, qui pousse `{session_id, kind, payload}` sur un
+  appellent le helper compilé `ThreadBay.app/Contents/Resources/bin/threadbay-notify`,
+  qui pousse `{session_id, kind, payload}` sur un
   **socket Unix** (`…/com.jlex.threadbay/threadbay.sock`) ouvert par l'app — et devient
   un no-op si l'app ne tourne pas.
 - À la fermeture de l'app avec des agents actifs : avertissement, puis arrêt propre

@@ -388,18 +388,18 @@ sans toucher à aucun fichier de config.</p>
 <p><strong>Injection non invasive</strong> (on ne touche pas à la config globale de l'utilisateur)&nbsp;:</p>
 <ul class="tight">
   <li>Claude&nbsp;: écrire un <span class="mono">.claude/settings.local.json</span> <em>dans l'espace</em> (déjà un clone jetable) avec nos hooks.</li>
-  <li>Codex&nbsp;: passer <span class="mono">-c 'notify=["threadbay","notify"]'</span> au lancement (override par process, pas de modif de <span class="mono">~/.codex/config.toml</span>).</li>
+  <li>Codex&nbsp;: passer <span class="mono">-c 'notify=["…/bin/threadbay-notify","codex-notify"]'</span> au lancement (override par process, pas de modif de <span class="mono">~/.codex/config.toml</span>).</li>
 </ul>
 
 <h3>Comment l'app reçoit le signal</h3>
 <p>On maîtrise le lancement de l'agent&nbsp;: on injecte dans son environnement <span class="mono">THREADBAY_SESSION_ID</span> (identité)
-et <span class="mono">THREADBAY_SOCK</span> (adresse du socket). Le hook/notify appelle un petit notifieur
-(sous-commande <span class="mono">threadbay notify …</span> ou script) qui transmet <span class="mono">{session_id, type, title, body}</span>&nbsp;:</p>
+et <span class="mono">THREADBAY_SOCK</span> (adresse du socket). Le hook/notify appelle le helper Swift compilé
+<span class="mono">threadbay-notify</span>, livré dans le bundle, qui transmet <span class="mono">{session_id, kind, payload}</span>&nbsp;:</p>
 <div class="callout reco">
   <span class="tag">Transport retenu — socket local (décision n°8)</span>
   Un <strong>socket de domaine Unix</strong> que l'app ouvre au démarrage&nbsp;; le notifieur s'y connecte et envoie le message en temps réel.
-  <strong>C'est exactement le choix de cmux</strong> (<span class="mono">/tmp/cmux.sock</span> + CLI <span class="mono">cmux notify</span>). Le script teste
-  l'existence du socket et devient un no-op si l'app n'est pas lancée.
+  <strong>C'est exactement le choix de cmux</strong> (<span class="mono">/tmp/cmux.sock</span> + CLI <span class="mono">cmux notify</span>). Le helper
+  devient un no-op si l'app n'est pas lancée.
   <em>Fallback simple si besoin&nbsp;:</em> un <strong>fichier</strong> déposé dans <span class="mono">~/.threadbay/events/</span> et surveillé (FSEvents).
 </div>
 <p><span class="muted">Note&nbsp;: on ne présuppose aucun binaire d'agent particulier — <span class="mono">claude</span>/<span class="mono">codex</span> sont résolus

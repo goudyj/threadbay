@@ -64,6 +64,7 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
     let agent: AgentDefinition
     let startedAt = Date()
     let terminalView: SessionTerminalView
+    private let notifierPath: String?
 
     @Published private(set) var state: State = .starting
     @Published var attention: Attention = .none
@@ -77,9 +78,15 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
     private(set) var stopRequested = false
     private var pendingRestart = false
 
-    init(space: TrackedSpace, agent: AgentDefinition, theme: TerminalTheme = .system) {
+    init(
+        space: TrackedSpace,
+        agent: AgentDefinition,
+        notifierPath: String?,
+        theme: TerminalTheme = .system
+    ) {
         self.space = space
         self.agent = agent
+        self.notifierPath = notifierPath
         self.terminalView = SessionTerminalView(
             frame: NSRect(x: 0, y: 0, width: 800, height: 500))
         super.init()
@@ -151,10 +158,10 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
         var command = CommandTemplate.render(agent.command, space: space)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !command.isEmpty else { return ["-il"] }
-        if agent.kind == .codex {
+        if agent.kind == .codex, let notifierPath {
             // Per-process notify override; ~/.codex/config.toml stays untouched.
             let override = HookInjection.codexNotifyOverride(
-                scriptPath: Paths.notifierScript.path)
+                notifierPath: notifierPath)
             command += " -c \(override.shellQuoted)"
         }
         return ["-lc", "exec \(command)"]

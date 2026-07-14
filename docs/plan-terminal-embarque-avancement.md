@@ -39,10 +39,10 @@ Suivi d'implémentation du plan `docs/plan-terminal-embarque.html` (décisions 1
     `.claude/settings.local.json` **de l'espace** (les autres clés du fichier sont
     préservées). `UserPromptSubmit`→`Stop` encadre le tour : état « réfléchit » (indigo)
     visible depuis la sidebar et les onglets de session.
-  - Codex : `-c notify=["…threadbay-notify.sh","codex-notify"]` par process.
+  - Codex : `-c notify=["…/bin/threadbay-notify","codex-notify"]` par process.
   - Identité par env : `THREADBAY_SESSION_ID` + `THREADBAY_SOCK`.
-  - Notifieur `threadbay-notify.sh` → **socket Unix** `threadbay.sock` (décision n°8) ;
-    no-op silencieux si l'app ne tourne pas. Testé de bout en bout (nc -U).
+  - Helper Swift compilé `threadbay-notify` → **socket Unix** `threadbay.sock` (décision n°8) ;
+    no-op silencieux si l'app ne tourne pas. Testé de bout en bout via le client Swift.
 - Notifications macOS (`UserNotifications`, inertes hors bundle) ; clic → fenêtre + session.
 - **Canal 2** (OSC 9/777/99) : non fait — optionnel dans le plan (« si le spike le permet
   facilement ») ; SwiftTerm ne les expose pas tel quel, à traiter plus tard si besoin.
@@ -55,10 +55,10 @@ Suivi d'implémentation du plan `docs/plan-terminal-embarque.html` (décisions 1
 - `build-app.sh` OK (release + bundle signé ad-hoc) ; README mis à jour.
 
 ## Vérifications effectuées
-- `swift build` + `swift test` : 24/24 tests verts (dont nouveaux : AgentLibrary,
+- `swift build` + `swift test` : 36/36 tests verts (dont nouveaux : AgentLibrary,
   CommandTemplate, HookInjection, AgentEvent, EventSocketServer).
-- Smoke test app : lancement → socket + notifieur + `agents.yaml` créés, arrêt propre.
-- Script notifieur : envoi réel sur socket vérifié, et no-op exit 0 sans app.
+- Smoke test app : lancement → socket + `agents.yaml` créé, arrêt propre.
+- Helper notifieur : envoi réel sur socket vérifié, et no-op exit 0 sans app.
 
 ## Reste à valider à la main (non automatisable)
 - Phase 0 go/no-go visuel : lancer Claude/Codex dans l'app et vérifier rendu TUI,

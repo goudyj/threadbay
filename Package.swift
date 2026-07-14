@@ -19,6 +19,10 @@ let package = Package(
             dependencies: ["ThreadBayCore", "SwiftTerm"],
             resources: [.process("Resources")]
         ),
+        .executableTarget(
+            name: "ThreadBayNotify",
+            dependencies: ["ThreadBayCore"]
+        ),
         .testTarget(
             name: "ThreadBayCoreTests",
             dependencies: ["ThreadBayCore"]

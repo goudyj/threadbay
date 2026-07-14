@@ -2,7 +2,7 @@ import Foundation
 import ThreadBayCore
 
 /// Source of truth for agent sessions (decision n°2: several per space). Owns
-/// the event socket the notifier scripts talk to, maps `session_id` back to a
+/// the event socket the notifier executable talks to, maps `session_id` back to a
 /// session, and posts macOS notifications for the three notified situations.
 @MainActor
 final class SessionManager: ObservableObject {
@@ -55,7 +55,6 @@ final class SessionManager: ObservableObject {
             self.focus(session)
         }
         do {
-            try HookInjection.installNotifier()
             let server = EventSocketServer(path: Paths.eventSocket.path) { [weak self] data in
                 guard let event = AgentEvent.parse(data) else { return }
                 Task { @MainActor in self?.handle(event) }
@@ -79,13 +78,22 @@ final class SessionManager: ObservableObject {
 
     func launch(agent: AgentDefinition, in space: TrackedSpace) {
         do {
-            let script = try HookInjection.installNotifier()
-            if agent.kind == .claude {
+            let notifierPath: String?
+            if agent.kind == .claude || agent.kind == .codex {
+                notifierPath = try Self.notifierExecutable().path
+            } else {
+                notifierPath = nil
+            }
+            if agent.kind == .claude, let notifierPath {
                 try HookInjection.injectClaudeHooks(
                     spaceDir: URL(fileURLWithPath: space.destination),
-                    scriptPath: script.path)
+                    notifierPath: notifierPath)
             }
-            let session = AgentSession(space: space, agent: agent, theme: terminalTheme)
+            let session = AgentSession(
+                space: space,
+                agent: agent,
+                notifierPath: notifierPath,
+                theme: terminalTheme)
             session.onStateChange = { [weak self] session in
                 self?.sessionChanged(session)
             }
@@ -197,5 +205,29 @@ final class SessionManager: ObservableObject {
 
     private func localized(_ key: String, _ arguments: CVarArg...) -> String {
         L10n.string(key, language: language, arguments: arguments)
+    }
+
+    private static func notifierExecutable() throws -> URL {
+        let bundled = Bundle.main.resourceURL?
+            .appendingPathComponent("bin", isDirectory: true)
+            .appendingPathComponent("threadbay-notify", isDirectory: false)
+        let swiftPMBuild = Bundle.main.executableURL?
+            .deletingLastPathComponent()
+            .appendingPathComponent("ThreadBayNotify", isDirectory: false)
+        let candidates = [bundled, swiftPMBuild].compactMap { $0 }
+        guard let executable = candidates.first(where: {
+            FileManager.default.isExecutableFile(atPath: $0.path)
+        }) else {
+            throw NotifierExecutableError.notFound
+        }
+        return executable
+    }
+
+    private enum NotifierExecutableError: LocalizedError {
+        case notFound
+
+        var errorDescription: String? {
+            "The ThreadBay notifier executable is missing. Rebuild the application."
+        }
     }
 }
