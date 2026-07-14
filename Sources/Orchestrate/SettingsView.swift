@@ -55,6 +55,14 @@ struct SettingsView: View {
             Text("Agents").font(.headline)
             AgentsEditor()
 
+            Text("Terminal").font(.headline)
+            Picker("Apparence", selection: terminalThemeBinding) {
+                Text("Système").tag(TerminalTheme.system)
+                Text("Clair").tag(TerminalTheme.light)
+                Text("Sombre").tag(TerminalTheme.dark)
+            }
+            .pickerStyle(.segmented)
+
             HStack {
                 Spacer()
                 Button("Fermer") { dismiss() }.keyboardShortcut(.defaultAction)
@@ -68,6 +76,12 @@ struct SettingsView: View {
         Binding(
             get: { app.settings.defaultProject },
             set: { app.setDefaultProject($0) })
+    }
+
+    private var terminalThemeBinding: Binding<TerminalTheme> {
+        Binding(
+            get: { app.terminalTheme },
+            set: { app.setTerminalTheme($0) })
     }
 
     private func addProject() {
@@ -99,14 +113,6 @@ private struct AgentsEditor: View {
                         text: binding(index).command
                     )
                     .font(.body.monospaced())
-                    Picker("", selection: binding(index).kind) {
-                        ForEach(AgentDefinition.Kind.allCases, id: \.self) { kind in
-                            Text(kind.rawValue).tag(kind)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: 90)
-                    .help("Type : pilote l'injection des hooks (claude/codex)")
                     Button(role: .destructive) {
                         app.agents.remove(at: index)
                         app.persistAgents()

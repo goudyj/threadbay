@@ -19,8 +19,15 @@ struct OrchestrateApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let appState = AppState()
     private var window: NSWindow?
+    private var keyEventMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard let terminal = event.window?.firstResponder as? SessionTerminalView,
+                terminal.handleShortcut(event)
+            else { return event }
+            return nil
+        }
         appState.onShowWindow = { [weak self] in self?.showMainWindow() }
         appState.sessionManager.setUp()
         NSApp.setActivationPolicy(.accessory)

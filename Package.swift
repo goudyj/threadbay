@@ -21,5 +21,9 @@ let package = Package(
             name: "OrchestrateCoreTests",
             dependencies: ["OrchestrateCore"]
         ),
+        .testTarget(
+            name: "OrchestrateTests",
+            dependencies: ["Orchestrate"]
+        ),
     ]
 )

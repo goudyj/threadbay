@@ -16,6 +16,7 @@ final class SessionManager: ObservableObject {
 
     let notifications = NotificationService()
     private var socketServer: EventSocketServer?
+    private var terminalTheme: TerminalTheme = .system
 
     var selected: AgentSession? {
         sessions.first { $0.id == selectedID }
@@ -83,7 +84,7 @@ final class SessionManager: ObservableObject {
                     spaceDir: URL(fileURLWithPath: space.destination),
                     scriptPath: script.path)
             }
-            let session = AgentSession(space: space, agent: agent)
+            let session = AgentSession(space: space, agent: agent, theme: terminalTheme)
             session.onStateChange = { [weak self] session in
                 self?.sessionChanged(session)
             }
@@ -115,6 +116,12 @@ final class SessionManager: ObservableObject {
         for session in sessions {
             session.stop()
         }
+    }
+
+    func setTerminalTheme(_ theme: TerminalTheme) {
+        terminalTheme = theme
+        sessions.forEach { $0.applyTheme(theme) }
+        objectWillChange.send()
     }
 
     /// Selecting a session acknowledges its badge.

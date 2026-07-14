@@ -34,7 +34,6 @@ struct TerminalPane: View {
                     if let session = current {
                         TerminalHostView(session: session)
                             .id(session.id)
-                            .background(Color.black)
                     }
                 }
             }

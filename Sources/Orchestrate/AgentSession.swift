@@ -1,7 +1,35 @@
 import AppKit
+import Carbon.HIToolbox
 import Foundation
 import OrchestrateCore
 import SwiftTerm
+
+enum TerminalTheme: String {
+    case system
+    case light
+    case dark
+
+    func colors(for appearance: NSAppearance) -> (background: NSColor, foreground: NSColor) {
+        let isDark: Bool
+        switch self {
+        case .system:
+            isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        case .light:
+            isDark = false
+        case .dark:
+            isDark = true
+        }
+
+        if isDark {
+            return (
+                NSColor(calibratedRed: 0.06, green: 0.07, blue: 0.09, alpha: 1),
+                NSColor(calibratedWhite: 0.92, alpha: 1))
+        }
+        return (
+            NSColor(calibratedWhite: 0.98, alpha: 1),
+            NSColor(calibratedWhite: 0.12, alpha: 1))
+    }
+}
 
 /// One agent instance running (or finished) in an embedded terminal, tied to a
 /// space. Owns the SwiftTerm view and its PTY — the view must outlive the
@@ -49,14 +77,15 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
     private(set) var stopRequested = false
     private var pendingRestart = false
 
-    init(space: TrackedSpace, agent: AgentDefinition) {
+    init(space: TrackedSpace, agent: AgentDefinition, theme: TerminalTheme = .system) {
         self.space = space
         self.agent = agent
         self.terminalView = SessionTerminalView(
             frame: NSRect(x: 0, y: 0, width: 800, height: 500))
         super.init()
         terminalView.processDelegate = self
-        configureAppearance()
+        terminalView.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        applyTheme(theme)
     }
 
     // MARK: - Process control
@@ -131,11 +160,8 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
         return ["-lc", "exec \(command)"]
     }
 
-    private func configureAppearance() {
-        terminalView.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
-        terminalView.nativeBackgroundColor = NSColor(
-            calibratedRed: 0.06, green: 0.07, blue: 0.09, alpha: 1)
-        terminalView.nativeForegroundColor = NSColor(calibratedWhite: 0.92, alpha: 1)
+    func applyTheme(_ theme: TerminalTheme) {
+        terminalView.applyTheme(theme)
     }
 }
 
@@ -160,9 +186,53 @@ extension AgentSession: LocalProcessTerminalViewDelegate {
     }
 }
 
-/// Terminal view with ⌘V/⌘C wired directly, so copy/paste works even when the
-/// menu-bar app exposes no Edit menu.
-final class SessionTerminalView: LocalProcessTerminalView {
+/// Adds macOS terminal conventions that SwiftTerm does not handle itself.
+class SessionTerminalView: LocalProcessTerminalView {
+    private var theme: TerminalTheme = .system
+
+    func applyTheme(_ theme: TerminalTheme) {
+        self.theme = theme
+        let colors = theme.colors(for: effectiveAppearance)
+        nativeBackgroundColor = colors.background
+        nativeForegroundColor = colors.foreground
+        setNeedsDisplay(bounds)
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        guard theme == .system else { return }
+        applyTheme(theme)
+    }
+
+    func handleShortcut(_ event: NSEvent) -> Bool {
+        let kittyKeyboardEnabled = !getTerminal().keyboardEnhancementFlags.isEmpty
+        guard let bytes = Self.terminalInput(
+            for: event,
+            kittyKeyboardEnabled: kittyKeyboardEnabled
+        ) else { return false }
+        send(source: self, data: bytes[...])
+        return true
+    }
+
+    private static func terminalInput(
+        for event: NSEvent,
+        kittyKeyboardEnabled: Bool
+    ) -> [UInt8]? {
+        let modifiers = event.modifierFlags.intersection([
+            .command, .control, .option, .shift,
+        ])
+        if event.keyCode == UInt16(kVK_Return), modifiers == .shift {
+            // SwiftTerm preserves Shift itself once the application enables
+            // Kitty; otherwise use Ghostty's legacy modified-key sequence.
+            guard !kittyKeyboardEnabled else { return nil }
+            return Array("\u{1b}[27;2;13~".utf8)
+        }
+        if event.keyCode == UInt16(kVK_Delete), modifiers == .command {
+            return [0x15] // Ctrl+U: delete to start of line
+        }
+        return nil
+    }
+
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if event.modifierFlags.contains(.command),
             event.modifierFlags.isDisjoint(with: [.option, .control]) {

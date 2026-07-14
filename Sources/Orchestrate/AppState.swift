@@ -7,9 +7,12 @@ import SwiftUI
 /// wired to the UI. All blocking work (git, editors) runs off the main actor.
 @MainActor
 final class AppState: ObservableObject {
+    private static let terminalThemeKey = "terminalTheme"
+
     @Published var settings = Settings()
     @Published var spaces: [TrackedSpace] = []
     @Published var agents: [AgentDefinition] = []
+    @Published private(set) var terminalTheme: TerminalTheme
     @Published var errorMessage: String?
     @Published var isBusy = false
 
@@ -33,7 +36,11 @@ final class AppState: ObservableObject {
     private let openService = OpenService()
 
     init() {
+        terminalTheme = TerminalTheme(
+            rawValue: UserDefaults.standard.string(forKey: Self.terminalThemeKey) ?? ""
+        ) ?? .system
         reload()
+        sessionManager.setTerminalTheme(terminalTheme)
         sessionManager.onError = { [weak self] message in
             self?.errorMessage = message
         }
@@ -128,6 +135,12 @@ final class AppState: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func setTerminalTheme(_ theme: TerminalTheme) {
+        terminalTheme = theme
+        UserDefaults.standard.set(theme.rawValue, forKey: Self.terminalThemeKey)
+        sessionManager.setTerminalTheme(theme)
     }
 
     // MARK: - Open actions
