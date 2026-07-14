@@ -11,6 +11,8 @@ struct MainWindow: View {
     @State private var showNew = false
     @State private var showSettings = false
     @State private var showManagement = false
+    @State private var renameSpace: TrackedSpace?
+    @State private var renameText = ""
 
     private var selectedSpace: TrackedSpace? {
         app.spaces.first { $0.name == app.selectedSpaceName }
@@ -29,6 +31,16 @@ struct MainWindow: View {
                             ForEach(group.spaces) { space in
                                 SidebarSpaceRow(space: space, manager: app.sessionManager)
                                     .tag(space.name)
+                                    .contextMenu {
+                                        Button {
+                                            renameSpace = space
+                                            renameText = space.displayTitle
+                                        } label: {
+                                            Label(
+                                                app.localized("management.rename"),
+                                                systemImage: "pencil")
+                                        }
+                                    }
                             }
                         }
                     }
@@ -53,6 +65,19 @@ struct MainWindow: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(app.errorMessage ?? "")
+        }
+        .alert(
+            app.localized("management.rename_title", renameSpace?.displayTitle ?? ""),
+            isPresented: renamePresented
+        ) {
+            TextField(app.localized("management.display_name"), text: $renameText)
+            Button(app.localized("common.cancel"), role: .cancel) { renameSpace = nil }
+            Button(app.localized("management.rename")) {
+                if let space = renameSpace { app.rename(space, displayName: renameText) }
+                renameSpace = nil
+            }
+        } message: {
+            Text(app.localized("management.rename_help"))
         }
         .confirmationDialog(
             closeSessionTitle,
@@ -132,6 +157,12 @@ struct MainWindow: View {
         Binding(
             get: { app.errorMessage != nil },
             set: { if !$0 { app.errorMessage = nil } })
+    }
+
+    private var renamePresented: Binding<Bool> {
+        Binding(
+            get: { renameSpace != nil },
+            set: { if !$0 { renameSpace = nil } })
     }
 
     private var closeSessionTitle: String {
