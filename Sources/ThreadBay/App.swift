@@ -23,6 +23,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if let recorder = event.window?.firstResponder as? ShortcutRecorderButton,
+                recorder.isRecording
+            {
+                return event
+            }
+            if event.window === self.window, self.appState.handleShortcut(event) {
+                return nil
+            }
             guard let terminal = event.window?.firstResponder as? SessionTerminalView,
                 terminal.handleShortcut(event)
             else { return event }

@@ -8,13 +8,11 @@ import SwiftUI
 struct MainWindow: View {
     @EnvironmentObject var app: AppState
 
-    /// "" means the overview of all spaces; otherwise the selected space name.
-    @State private var selection = ""
     @State private var showNew = false
     @State private var showSettings = false
 
     private var selectedSpace: TrackedSpace? {
-        app.spaces.first { $0.name == selection }
+        app.spaces.first { $0.name == app.selectedSpaceName }
     }
 
     var body: some View {
@@ -22,7 +20,7 @@ struct MainWindow: View {
             header
             Divider()
             NavigationSplitView {
-                List(selection: $selection) {
+                List(selection: $app.selectedSpaceName) {
                     Label(app.localized("main.all_spaces"), systemImage: "square.stack.3d.up")
                         .tag("")
                     ForEach(app.groups) { group in
@@ -54,6 +52,20 @@ struct MainWindow: View {
         } message: {
             Text(app.errorMessage ?? "")
         }
+        .confirmationDialog(
+            closeSessionTitle,
+            isPresented: closeSessionPresented,
+            titleVisibility: .visible
+        ) {
+            Button(app.localized("terminal.close_confirm"), role: .destructive) {
+                app.confirmCloseSession()
+            }
+            Button(app.localized("common.cancel"), role: .cancel) {
+                app.cancelCloseSession()
+            }
+        } message: {
+            Text(app.localized("terminal.close_message"))
+        }
     }
 
     private var header: some View {
@@ -84,7 +96,7 @@ struct MainWindow: View {
             app.pendingSettings = false
         }
         if let name = app.pendingSelectSpace {
-            selection = name
+            app.selectedSpaceName = name
             app.pendingSelectSpace = nil
         }
     }
@@ -115,6 +127,19 @@ struct MainWindow: View {
         Binding(
             get: { app.errorMessage != nil },
             set: { if !$0 { app.errorMessage = nil } })
+    }
+
+    private var closeSessionTitle: String {
+        guard let session = app.pendingCloseSession else {
+            return app.localized("terminal.close_title")
+        }
+        return app.localized("terminal.close_named_title", session.agent.name)
+    }
+
+    private var closeSessionPresented: Binding<Bool> {
+        Binding(
+            get: { app.pendingCloseSessionID != nil },
+            set: { if !$0 { app.cancelCloseSession() } })
     }
 }
 
@@ -203,10 +228,6 @@ private struct SpaceDetail: View {
                     .textSelection(.enabled)
             }
             Spacer()
-            LaunchAgentMenu(space: space) {
-                Label(app.localized("main.launch_agent"), systemImage: "play.fill")
-            }
-            .fixedSize()
             Menu(app.localized("main.open_in")) {
                 ForEach(Editor.allCases) { editor in
                     Button(editor.displayName) { app.open(editor, space) }

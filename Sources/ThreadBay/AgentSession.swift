@@ -76,7 +76,6 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
     var onStateChange: ((AgentSession) -> Void)?
     /// True when the exit was requested from the UI (then no notification).
     private(set) var stopRequested = false
-    private var pendingRestart = false
 
     init(
         space: TrackedSpace,
@@ -132,23 +131,6 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
         }
     }
 
-    /// Restarts in place: waits for the current process to die (the PTY can
-    /// only host one process at a time), then starts a fresh one.
-    func restart() {
-        if terminalView.process.running {
-            pendingRestart = true
-            stop()
-        } else {
-            start()
-        }
-    }
-
-    /// Clears screen and scrollback (full emulator reset).
-    func clear() {
-        terminalView.getTerminal().resetToInitialState()
-        terminalView.setNeedsDisplay(terminalView.bounds)
-    }
-
     // MARK: - Launch command
 
     /// A login shell resolves `claude`/`codex` exactly like a real terminal
@@ -185,10 +167,6 @@ extension AgentSession: LocalProcessTerminalViewDelegate {
             state = .exited(exitCode)
             isWorking = false
             onStateChange?(self)
-            if pendingRestart {
-                pendingRestart = false
-                start()
-            }
         }
     }
 }

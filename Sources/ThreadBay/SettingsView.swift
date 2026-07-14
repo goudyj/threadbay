@@ -2,72 +2,106 @@ import AppKit
 import ThreadBayCore
 import SwiftUI
 
-/// Minimal settings: default project + project list, plus a shortcut to edit the
-/// raw `settings.yaml` (parity with the CLI's `threadbay settings`).
+/// Application settings, including app-only preferences and a shortcut to edit
+/// the raw `settings.yaml` managed jointly with the CLI.
 struct SettingsView: View {
     @EnvironmentObject var app: AppState
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(app.localized("settings.title")).font(.title2).bold()
+        VStack(alignment: .leading, spacing: 12) {
+            Text(app.localized("settings.title"))
+                .font(.title2)
+                .bold()
 
-            Form {
-                Picker(app.localized("settings.language"), selection: languageBinding) {
-                    ForEach(AppLanguage.allCases) { language in
-                        Text(languageName(language)).tag(language)
-                    }
-                }
-
-                Picker(app.localized("settings.default_project"), selection: defaultBinding) {
-                    Text(app.localized("common.none")).tag(String?.none)
-                    ForEach(app.settings.projects) { Text($0.name).tag(Optional($0.name)) }
-                }
-            }
-
-            Text(app.localized("settings.projects")).font(.headline)
-            if app.settings.projects.isEmpty {
-                Text(app.localized("settings.no_projects")).foregroundStyle(.secondary)
-            } else {
-                List {
-                    ForEach(app.settings.projects) { project in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(project.name)
-                                Text(project.path).font(.caption).foregroundStyle(.secondary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Form {
+                        Picker(app.localized("settings.language"), selection: languageBinding) {
+                            ForEach(AppLanguage.allCases) { language in
+                                Text(languageName(language)).tag(language)
                             }
-                            Spacer()
-                            Button(role: .destructive) {
-                                app.removeProject(project.name)
-                            } label: {
-                                Label(app.localized("common.remove"), systemImage: "trash")
+                        }
+
+                        Picker(
+                            app.localized("settings.default_project"),
+                            selection: defaultBinding
+                        ) {
+                            Text(app.localized("common.none")).tag(String?.none)
+                            ForEach(app.settings.projects) {
+                                Text($0.name).tag(Optional($0.name))
                             }
-                            .labelStyle(.iconOnly)
-                            .buttonStyle(.borderless)
                         }
                     }
+
+                    Text(app.localized("settings.projects")).font(.headline)
+                    if app.settings.projects.isEmpty {
+                        Text(app.localized("settings.no_projects"))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        List {
+                            ForEach(app.settings.projects) { project in
+                                HStack {
+                                    VStack(alignment: .leading) {
+                                        Text(project.name)
+                                        Text(project.path)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Button(role: .destructive) {
+                                        app.removeProject(project.name)
+                                    } label: {
+                                        Label(
+                                            app.localized("common.remove"), systemImage: "trash")
+                                    }
+                                    .labelStyle(.iconOnly)
+                                    .buttonStyle(.borderless)
+                                }
+                            }
+                        }
+                        .frame(minHeight: 120)
+                    }
+
+                    HStack {
+                        Button(app.localized("settings.add_project")) { addProject() }
+                        Button(app.localized("settings.open_yaml")) { app.openSettingsFile() }
+                        Spacer()
+                    }
+
+                    Divider()
+
+                    Text(app.localized("settings.agents")).font(.headline)
+                    AgentsEditor()
+
+                    Text(app.localized("settings.shortcuts")).font(.headline)
+                    VStack(spacing: 8) {
+                        ForEach(AppShortcutAction.allCases) { action in
+                            HStack {
+                                Text(shortcutName(action))
+                                Spacer()
+                                ShortcutRecorder(shortcut: shortcutBinding(action))
+                                    .frame(width: 90)
+                            }
+                        }
+                    }
+                    Text(app.localized("settings.shortcuts_help"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button(app.localized("settings.shortcuts_reset")) { app.resetShortcuts() }
+
+                    Text(app.localized("settings.terminal")).font(.headline)
+                    Picker(
+                        app.localized("settings.appearance"),
+                        selection: terminalThemeBinding
+                    ) {
+                        Text(app.localized("settings.theme.system")).tag(TerminalTheme.system)
+                        Text(app.localized("settings.theme.light")).tag(TerminalTheme.light)
+                        Text(app.localized("settings.theme.dark")).tag(TerminalTheme.dark)
+                    }
+                    .pickerStyle(.segmented)
                 }
-                .frame(minHeight: 120)
             }
-
-            HStack {
-                Button(app.localized("settings.add_project")) { addProject() }
-                Button(app.localized("settings.open_yaml")) { app.openSettingsFile() }
-                Spacer()
-            }
-
-            Divider()
-
-            Text(app.localized("settings.agents")).font(.headline)
-            AgentsEditor()
-
-            Text(app.localized("settings.terminal")).font(.headline)
-            Picker(app.localized("settings.appearance"), selection: terminalThemeBinding) {
-                Text(app.localized("settings.theme.system")).tag(TerminalTheme.system)
-                Text(app.localized("settings.theme.light")).tag(TerminalTheme.light)
-                Text(app.localized("settings.theme.dark")).tag(TerminalTheme.dark)
-            }
-            .pickerStyle(.segmented)
 
             HStack {
                 Spacer()
@@ -76,7 +110,7 @@ struct SettingsView: View {
             }
         }
         .padding(20)
-        .frame(width: 620)
+        .frame(width: 620, height: 700)
     }
 
     private var defaultBinding: Binding<String?> {
@@ -105,6 +139,22 @@ struct SettingsView: View {
         case .spanish: return app.localized("language.spanish")
         case .simplifiedChinese: return app.localized("language.chinese")
         }
+    }
+
+    private func shortcutName(_ action: AppShortcutAction) -> String {
+        switch action {
+        case .newSpace: return app.localized("settings.shortcut_new_space")
+        case .closeSession: return app.localized("settings.shortcut_close_session")
+        case .launchClaude: return app.localized("settings.shortcut_claude")
+        case .launchCodex: return app.localized("settings.shortcut_codex")
+        case .launchShell: return app.localized("settings.shortcut_shell")
+        }
+    }
+
+    private func shortcutBinding(_ action: AppShortcutAction) -> Binding<AppShortcut> {
+        Binding(
+            get: { app.shortcuts[action] },
+            set: { app.setShortcut($0, for: action) })
     }
 
     private func addProject() {

@@ -13,6 +13,7 @@ final class AppState: ObservableObject {
     @Published var settings = Settings()
     @Published var spaces: [TrackedSpace] = []
     @Published var agents: [AgentDefinition] = []
+    @Published private(set) var shortcuts: AppShortcutSettings
     @Published private(set) var terminalTheme: TerminalTheme
     @Published private(set) var appLanguage: AppLanguage
     @Published var errorMessage: String?
@@ -23,6 +24,8 @@ final class AppState: ObservableObject {
     @Published var pendingSettings = false
     /// Asks the window to select a space (set when launching an agent).
     @Published var pendingSelectSpace: String?
+    @Published var selectedSpaceName = ""
+    @Published var pendingCloseSessionID: UUID?
 
     /// Installed by the app delegate; brings the main window to the front.
     var onShowWindow: (@MainActor () -> Void)?
@@ -39,6 +42,7 @@ final class AppState: ObservableObject {
     private let openService = OpenService()
 
     init() {
+        shortcuts = AppShortcutSettings.load()
         appLanguage = AppLanguage(
             rawValue: UserDefaults.standard.string(forKey: Self.appLanguageKey) ?? ""
         ) ?? .system
@@ -171,12 +175,75 @@ final class AppState: ObservableObject {
         showMainWindow()
     }
 
+    func handleShortcut(_ event: NSEvent) -> Bool {
+        guard let action = shortcuts.action(matching: event) else { return false }
+        guard !event.isARepeat else { return true }
+
+        switch action {
+        case .newSpace:
+            pendingNewSpace = true
+            showMainWindow()
+        case .closeSession:
+            requestCloseActiveSession()
+        case .launchClaude:
+            launchAgent(kind: .claude)
+        case .launchCodex:
+            launchAgent(kind: .codex)
+        case .launchShell:
+            launchAgent(kind: .shell)
+        }
+        return true
+    }
+
+    func setShortcut(_ shortcut: AppShortcut, for action: AppShortcutAction) {
+        guard shortcuts.conflictingAction(for: shortcut, excluding: action) == nil else {
+            errorMessage = localized("settings.shortcut_conflict", shortcut.displayName)
+            return
+        }
+        shortcuts[action] = shortcut
+        shortcuts.save()
+    }
+
+    func resetShortcuts() {
+        shortcuts = AppShortcutSettings()
+        shortcuts.save()
+    }
+
+    var pendingCloseSession: AgentSession? {
+        guard let pendingCloseSessionID else { return nil }
+        return sessionManager.sessions.first { $0.id == pendingCloseSessionID }
+    }
+
+    func confirmCloseSession() {
+        guard let session = pendingCloseSession else { return }
+        sessionManager.close(session)
+        pendingCloseSessionID = nil
+    }
+
+    func cancelCloseSession() {
+        pendingCloseSessionID = nil
+    }
+
     func persistAgents() {
         do {
             try AgentLibrary(agents: agents).save()
         } catch {
             errorMessage = localizedError(error)
         }
+    }
+
+    private func requestCloseActiveSession() {
+        guard let space = spaces.first(where: { $0.name == selectedSpaceName }) else { return }
+        let sessions = sessionManager.sessions(for: space)
+        let active = sessions.first { $0.id == sessionManager.selectedID } ?? sessions.first
+        pendingCloseSessionID = active?.id
+    }
+
+    private func launchAgent(kind: AgentDefinition.Kind) {
+        guard let space = spaces.first(where: { $0.name == selectedSpaceName }),
+            let agent = agents.first(where: { $0.kind == kind })
+        else { return }
+        launchAgent(agent, in: space)
     }
 
     func setTerminalTheme(_ theme: TerminalTheme) {

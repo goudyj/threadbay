@@ -1,9 +1,10 @@
+import AppKit
 import ThreadBayCore
 import SwiftUI
 
 /// Terminal area of a space: a tab-like selector for the space's sessions
-/// (decision n°2 allows several), a restart/stop/clear action bar, and the
-/// embedded terminal of the selected session.
+/// (decision n°2 allows several) and the embedded terminal of the selected
+/// session.
 struct TerminalPane: View {
     @EnvironmentObject var app: AppState
     @ObservedObject var manager: SessionManager
@@ -12,6 +13,7 @@ struct TerminalPane: View {
     /// Key-window state: a badge is only acknowledged when the user can
     /// actually see the terminal.
     @Environment(\.controlActiveState) private var activeState
+    @State private var launchMenuRequest = 0
 
     private var sessions: [AgentSession] {
         manager.sessions(for: space)
@@ -73,34 +75,32 @@ struct TerminalPane: View {
                         SessionTab(
                             session: session,
                             isSelected: session.id == current?.id,
-                            select: { manager.select(session.id) },
-                            close: { manager.close(session) })
+                            select: { manager.select(session.id) })
                     }
                 }
             }
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                TapGesture(count: 2).onEnded { launchMenuRequest += 1 })
             Spacer()
-            if let session = current {
-                SessionActions(session: session)
-            }
-            LaunchAgentMenu(space: space) {
-                Image(systemName: "plus")
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .help(app.localized("terminal.launch_another"))
+            AgentLaunchPopUpButton(
+                agents: app.agents,
+                requestID: launchMenuRequest,
+                help: app.localized("terminal.launch_another"),
+                launch: { app.launchAgent($0, in: space) })
+                .frame(width: 24, height: 24)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
     }
 }
 
-/// One session "tab": status dot, agent name, close button.
+/// One session "tab": status dot and agent name.
 private struct SessionTab: View {
     @EnvironmentObject var app: AppState
     @ObservedObject var session: AgentSession
     let isSelected: Bool
     let select: () -> Void
-    let close: () -> Void
 
     var body: some View {
         HStack(spacing: 5) {
@@ -109,13 +109,6 @@ private struct SessionTab: View {
                 .frame(width: 7, height: 7)
             Text(session.agent.name)
                 .lineLimit(1)
-            Button(action: close) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 8, weight: .bold))
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .help(app.localized("terminal.close_session"))
         }
         .font(.callout)
         .padding(.horizontal, 8)
@@ -129,39 +122,7 @@ private struct SessionTab: View {
     }
 }
 
-/// Restart / stop / clear buttons for the selected session.
-private struct SessionActions: View {
-    @EnvironmentObject var app: AppState
-    @ObservedObject var session: AgentSession
-
-    var body: some View {
-        HStack(spacing: 2) {
-            Button {
-                session.restart()
-            } label: {
-                Image(systemName: "arrow.clockwise")
-            }
-            .help(app.localized("terminal.restart"))
-            Button {
-                session.stop()
-            } label: {
-                Image(systemName: "stop.fill")
-            }
-            .disabled(!session.state.isActive)
-            .help(app.localized("terminal.stop"))
-            Button {
-                session.clear()
-            } label: {
-                Image(systemName: "clear")
-            }
-            .help(app.localized("terminal.clear"))
-        }
-        .buttonStyle(.borderless)
-    }
-}
-
-/// Menu offering the configured agents for a space (used from the empty state,
-/// the session bar, the space rows and the menu bar).
+/// Menu offering the configured agents for a space.
 struct LaunchAgentMenu<Label: View>: View {
     @EnvironmentObject var app: AppState
     let space: TrackedSpace
@@ -174,6 +135,71 @@ struct LaunchAgentMenu<Label: View>: View {
             }
         } label: {
             label()
+        }
+    }
+}
+
+/// AppKit pull-down button so a double-click on the tab row can open the exact
+/// same menu as the + button.
+private struct AgentLaunchPopUpButton: NSViewRepresentable {
+    let agents: [AgentDefinition]
+    let requestID: Int
+    let help: String
+    let launch: (AgentDefinition) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(launch: launch)
+    }
+
+    func makeNSView(context: Context) -> NSPopUpButton {
+        let button = NSPopUpButton(frame: .zero, pullsDown: true)
+        button.isBordered = false
+        (button.cell as? NSPopUpButtonCell)?.arrowPosition = .noArrow
+        button.imagePosition = .imageOnly
+        context.coordinator.configure(button, agents: agents, help: help)
+        return button
+    }
+
+    func updateNSView(_ button: NSPopUpButton, context: Context) {
+        context.coordinator.launch = launch
+        context.coordinator.configure(button, agents: agents, help: help)
+        guard requestID != context.coordinator.lastRequestID else { return }
+        context.coordinator.lastRequestID = requestID
+        DispatchQueue.main.async { button.performClick(nil) }
+    }
+
+    @MainActor
+    final class Coordinator: NSObject {
+        var launch: (AgentDefinition) -> Void
+        var lastRequestID = 0
+        private var agents: [AgentDefinition] = []
+
+        init(launch: @escaping (AgentDefinition) -> Void) {
+            self.launch = launch
+        }
+
+        func configure(_ button: NSPopUpButton, agents: [AgentDefinition], help: String) {
+            button.toolTip = help
+            guard self.agents != agents || button.numberOfItems == 0 else { return }
+            self.agents = agents
+            button.removeAllItems()
+            button.addItem(withTitle: "")
+            button.item(at: 0)?.image = NSImage(
+                systemSymbolName: "plus", accessibilityDescription: help)
+            for (index, agent) in agents.enumerated() {
+                let item = NSMenuItem(
+                    title: agent.name,
+                    action: #selector(launchAgent(_:)),
+                    keyEquivalent: "")
+                item.target = self
+                item.tag = index
+                button.menu?.addItem(item)
+            }
+        }
+
+        @objc private func launchAgent(_ item: NSMenuItem) {
+            guard agents.indices.contains(item.tag) else { return }
+            launch(agents[item.tag])
         }
     }
 }
