@@ -1,13 +1,13 @@
 import ThreadBayCore
 import SwiftUI
 
-/// Creates a new branch, checks out an existing branch, or checks out a GitHub
-/// pull request in a new space.
+/// Creates a space from a Git branch, a GitHub pull request, or a plain folder.
 struct NewSpaceView: View {
     private enum CreationMode: CaseIterable, Identifiable {
         case feature
         case existingBranch
         case pullRequest
+        case folder
 
         var id: Self { self }
 
@@ -16,6 +16,7 @@ struct NewSpaceView: View {
             case .feature: return "new_space.mode.feature"
             case .existingBranch: return "new_space.mode.existing"
             case .pullRequest: return "new_space.mode.pr"
+            case .folder: return "new_space.mode.folder"
             }
         }
     }
@@ -26,6 +27,8 @@ struct NewSpaceView: View {
     @State private var projectName = ""
     @State private var mode: CreationMode = .feature
     @State private var branchName = ""
+    @State private var spaceName = ""
+    @State private var isGitProject: Bool?
     @State private var selectedBaseID = ""
     @State private var selectedBranchID = ""
     @State private var searchText = ""
@@ -74,6 +77,8 @@ struct NewSpaceView: View {
             return branch(id: selectedBranchID) != nil
         case .pullRequest:
             return selectedPullRequestNumber != nil
+        case .folder:
+            return !spaceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
     }
 
@@ -93,14 +98,23 @@ struct NewSpaceView: View {
                         .labelsHidden()
                     }
 
-                    fieldRow(app.localized("new_space.source")) {
-                        Picker("", selection: $mode) {
-                            ForEach(CreationMode.allCases) {
-                                Text(app.localized($0.localizationKey)).tag($0)
+                    if isGitProject == true {
+                        fieldRow(app.localized("new_space.source")) {
+                            Picker("", selection: $mode) {
+                                ForEach(CreationMode.allCases.filter { $0 != .folder }) {
+                                    Text(app.localized($0.localizationKey)).tag($0)
+                                }
                             }
+                            .labelsHidden()
+                            .pickerStyle(.segmented)
                         }
-                        .labelsHidden()
-                        .pickerStyle(.segmented)
+                    } else if isGitProject == false {
+                        fieldRow(app.localized("new_space.source")) {
+                            Label(
+                                app.localized("new_space.plain_folder"),
+                                systemImage: "folder")
+                                .foregroundStyle(.secondary)
+                        }
                     }
 
                     modeFields
@@ -130,7 +144,7 @@ struct NewSpaceView: View {
             pullRequests = []
             selectedPullRequestNumber = nil
             Task {
-                await loadBranches()
+                await configureProject()
                 if mode == .pullRequest { await loadPullRequests() }
             }
         }
@@ -139,7 +153,7 @@ struct NewSpaceView: View {
             if mode == .pullRequest {
                 pullRequestSearch = ""
                 Task { await loadPullRequests() }
-            } else {
+            } else if mode != .folder {
                 selectFirstFilteredBranchIfNeeded()
             }
         }
@@ -183,6 +197,13 @@ struct NewSpaceView: View {
             branchSelector(app.localized("new_space.branch"), selection: $selectedBranchID)
         case .pullRequest:
             pullRequestSelector
+        case .folder:
+            fieldRow(app.localized("new_space.space_name")) {
+                TextField(
+                    "", text: $spaceName,
+                    prompt: Text(app.localized("new_space.space_name_placeholder")))
+                .labelsHidden()
+            }
         }
     }
 
@@ -383,7 +404,7 @@ struct NewSpaceView: View {
     }
 
     private func selectFirstFilteredBranchIfNeeded() {
-        guard mode != .pullRequest else { return }
+        guard mode != .pullRequest, mode != .folder else { return }
         let selectedID = mode == .feature ? selectedBaseID : selectedBranchID
         guard !filteredBranches.contains(where: { $0.id == selectedID }) else { return }
         let fallback = filteredBranches.first?.id ?? ""
@@ -408,7 +429,28 @@ struct NewSpaceView: View {
         if projectName.isEmpty {
             projectName = app.settings.defaultProject ?? app.settings.projects.first?.name ?? ""
         }
-        await loadBranches()
+        await configureProject()
+    }
+
+    private func configureProject() async {
+        guard let project = selectedProject else {
+            isGitProject = nil
+            branches = []
+            return
+        }
+        let isGit = await app.isGitProject(project)
+        guard project.name == projectName else { return }
+        isGitProject = isGit
+        if isGit {
+            if mode == .folder { mode = .feature }
+            await loadBranches()
+        } else {
+            mode = .folder
+            branches = []
+            selectedBaseID = ""
+            selectedBranchID = ""
+            spaceName = project.name
+        }
     }
 
     private func loadBranches(refresh: Bool = false) async {
@@ -418,6 +460,7 @@ struct NewSpaceView: View {
             selectedBranchID = ""
             return
         }
+        guard isGitProject == true else { return }
 
         loadingBranches = true
         defer { loadingBranches = false }
@@ -503,6 +546,8 @@ struct NewSpaceView: View {
         case .pullRequest:
             guard let number = selectedPullRequestNumber else { return }
             creation = .pullRequest(number)
+        case .folder:
+            creation = .folder(name: spaceName)
         }
 
         if await app.createSpace(project: project, creation: creation) {

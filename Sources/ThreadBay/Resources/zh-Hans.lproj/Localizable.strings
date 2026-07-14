@@ -18,6 +18,10 @@
 "new_space.mode.feature" = "新建分支";
 "new_space.mode.existing" = "现有分支";
 "new_space.mode.pr" = "拉取请求";
+"new_space.mode.folder" = "文件夹副本";
+"new_space.plain_folder" = "复制此文件夹（无需 Git 仓库）";
+"new_space.space_name" = "空间名称";
+"new_space.space_name_placeholder" = "我的空间";
 "new_space.branch_name" = "分支名称";
 "new_space.branch_placeholder" = "feat/my-feature";
 "new_space.base_branch" = "基础分支";
@@ -48,7 +52,7 @@
 "settings.theme.light" = "浅色";
 "settings.theme.dark" = "深色";
 "settings.add" = "添加";
-"settings.choose_repo" = "选择源 Git 仓库文件夹";
+"settings.choose_repo" = "选择源项目文件夹";
 "settings.agent_name" = "名称";
 "settings.agent_command" = "命令（留空 = 交互式 shell）";
 "settings.add_agent" = "添加代理";
@@ -77,6 +81,19 @@
 "main.launch_agent" = "启动代理";
 "main.open_in" = "打开方式…";
 "main.created_on" = "创建于 %@";
+"main.folder_copy" = "文件夹副本";
+"management.title" = "管理空间";
+"management.spaces" = "空间";
+"management.branches" = "分支";
+"management.rename" = "重命名";
+"management.rename_title" = "重命名“%@”";
+"management.display_name" = "显示名称";
+"management.rename_help" = "只会更改 ThreadBay 中显示的名称，不会重命名文件夹。";
+"management.delete_branch_title" = "删除分支“%@”？";
+"management.delete_branch_help" = "只会删除本地分支。如果分支是当前分支、尚未合并或正被其他工作树使用，Git 将拒绝删除。";
+"management.current_branch" = "当前";
+"management.not_git" = "此项目未使用 Git";
+"management.not_git_help" = "此项目没有可管理的分支。";
 "menu.no_spaces" = "没有空间";
 "menu.launch" = "启动 %@";
 "menu.open_in" = "使用 %@ 打开";
@@ -110,6 +127,7 @@
 "error.project_exists" = "名为“%@”的项目已存在。";
 "error.branch_empty" = "分支名称为空。";
 "error.base_branch_empty" = "基础分支为空。";
+"error.space_name_empty" = "空间名称为空。";
 "error.invalid_pr" = "拉取请求编号必须大于零。";
 "error.destination_exists" = "目标位置已存在：%@";
 "error.tool_not_found" = "找不到工具“%@”。请确认它已安装并位于 PATH 中。";

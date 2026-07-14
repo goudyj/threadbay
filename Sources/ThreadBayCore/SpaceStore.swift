@@ -40,6 +40,15 @@ public struct SpaceStore: Sendable {
         try save()
     }
 
+    /// Changes only the user-facing label. The registry key and folder stay unchanged.
+    public mutating func rename(named name: String, displayName: String) throws {
+        guard let index = spaces.firstIndex(where: { $0.name == name }) else { return }
+        let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        spaces[index].displayName = trimmed.isEmpty || trimmed == spaces[index].name
+            ? nil : trimmed
+        try save()
+    }
+
     private func save() throws {
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(), withIntermediateDirectories: true)

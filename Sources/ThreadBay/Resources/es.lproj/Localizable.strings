@@ -18,6 +18,10 @@
 "new_space.mode.feature" = "Nueva rama";
 "new_space.mode.existing" = "Rama existente";
 "new_space.mode.pr" = "Pull request";
+"new_space.mode.folder" = "Copia de carpeta";
+"new_space.plain_folder" = "Copiar esta carpeta (no requiere repositorio Git)";
+"new_space.space_name" = "Nombre del espacio";
+"new_space.space_name_placeholder" = "Mi espacio";
 "new_space.branch_name" = "Nombre de la rama";
 "new_space.branch_placeholder" = "feat/mi-funcionalidad";
 "new_space.base_branch" = "Rama base";
@@ -48,7 +52,7 @@
 "settings.theme.light" = "Claro";
 "settings.theme.dark" = "Oscuro";
 "settings.add" = "Añadir";
-"settings.choose_repo" = "Elige la carpeta del repositorio Git de origen";
+"settings.choose_repo" = "Elige la carpeta del proyecto de origen";
 "settings.agent_name" = "Nombre";
 "settings.agent_command" = "Comando (vacío = shell interactivo)";
 "settings.add_agent" = "Añadir agente";
@@ -77,6 +81,19 @@
 "main.launch_agent" = "Iniciar agente";
 "main.open_in" = "Abrir en…";
 "main.created_on" = "Creado el %@";
+"main.folder_copy" = "Copia de carpeta";
+"management.title" = "Gestionar espacios";
+"management.spaces" = "Espacios";
+"management.branches" = "Ramas";
+"management.rename" = "Renombrar";
+"management.rename_title" = "Renombrar «%@»";
+"management.display_name" = "Nombre visible";
+"management.rename_help" = "Solo cambia el nombre mostrado en ThreadBay. La carpeta no se renombra.";
+"management.delete_branch_title" = "¿Eliminar la rama «%@»?";
+"management.delete_branch_help" = "Solo se eliminará la rama local. Git lo impedirá si es la actual, no está fusionada o la usa otro worktree.";
+"management.current_branch" = "actual";
+"management.not_git" = "Este proyecto no usa Git";
+"management.not_git_help" = "No hay ramas que gestionar para este proyecto.";
 "menu.no_spaces" = "No hay espacios";
 "menu.launch" = "Iniciar %@";
 "menu.open_in" = "Abrir en %@";
@@ -110,6 +127,7 @@
 "error.project_exists" = "Ya existe un proyecto llamado “%@”.";
 "error.branch_empty" = "El nombre de la rama está vacío.";
 "error.base_branch_empty" = "La rama base está vacía.";
+"error.space_name_empty" = "El nombre del espacio está vacío.";
 "error.invalid_pr" = "El número de la pull request debe ser mayor que cero.";
 "error.destination_exists" = "El destino ya existe: %@";
 "error.tool_not_found" = "No se encontró la herramienta “%@”. Comprueba que está instalada y disponible en PATH.";

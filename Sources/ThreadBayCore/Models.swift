@@ -64,11 +64,12 @@ public struct GitBranch: Identifiable, Hashable, Sendable {
     }
 }
 
-/// The three space creation flows exposed by the macOS app.
+/// The space creation flows exposed by the macOS app.
 public enum SpaceCreation: Hashable, Sendable {
     case feature(branchName: String, base: GitBranch)
     case existingBranch(GitBranch)
     case pullRequest(UInt)
+    case folder(name: String)
 }
 
 /// Optional per-task agent commands. Preserved on round-trip even though the app
@@ -88,16 +89,22 @@ public struct TrackedSpace: Codable, Identifiable, Hashable, Sendable {
     public var projectName: String
     public var destination: String
     public var name: String
+    public var displayName: String?
     public var createdAt: String
     public var taskType: String
     public var taskValue: String
 
     public var id: String { name }
+    public var displayTitle: String {
+        let trimmed = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? name : trimmed
+    }
 
     public init(
         projectName: String,
         destination: String,
         name: String,
+        displayName: String? = nil,
         createdAt: String,
         taskType: String,
         taskValue: String
@@ -105,6 +112,7 @@ public struct TrackedSpace: Codable, Identifiable, Hashable, Sendable {
         self.projectName = projectName
         self.destination = destination
         self.name = name
+        self.displayName = displayName
         self.createdAt = createdAt
         self.taskType = taskType
         self.taskValue = taskValue
@@ -114,6 +122,7 @@ public struct TrackedSpace: Codable, Identifiable, Hashable, Sendable {
         case projectName = "project_name"
         case destination
         case name
+        case displayName = "display_name"
         case createdAt = "created_at"
         case taskType = "task_type"
         case taskValue = "task_value"

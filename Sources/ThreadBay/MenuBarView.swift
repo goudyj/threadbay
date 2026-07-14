@@ -58,8 +58,8 @@ struct MenuBarView: View {
     /// Suffixes the space name with its number of active agents.
     private func menuTitle(for space: TrackedSpace) -> String {
         let running = app.sessionManager.runningCount(for: space)
-        guard running > 0 else { return space.name }
+        guard running > 0 else { return space.displayTitle }
         let alert = app.sessionManager.needsAttention(space) ? " ⚠" : ""
-        return app.localized("menu.active_agents", space.name, running) + alert
+        return app.localized("menu.active_agents", space.displayTitle, running) + alert
     }
 }

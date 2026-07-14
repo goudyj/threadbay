@@ -3,6 +3,7 @@ import Foundation
 public enum SpaceServiceError: Error, LocalizedError {
     case emptyBranchName
     case emptyBaseBranch
+    case emptySpaceName
     case invalidPullRequest
     case destinationExists(String)
 
@@ -12,6 +13,8 @@ public enum SpaceServiceError: Error, LocalizedError {
             return "Le nom de la branche est vide."
         case .emptyBaseBranch:
             return "La branche de base est vide."
+        case .emptySpaceName:
+            return "Le nom de l’espace est vide."
         case .invalidPullRequest:
             return "Le numéro de pull request doit être supérieur à zéro."
         case .destinationExists(let path):
@@ -30,8 +33,8 @@ public struct SpaceService: Sendable {
         self.shell = shell
     }
 
-    /// Clones `project` into a sibling directory, applies the selected creation
-    /// flow, persists a tracking entry, and returns it.
+    /// Creates a sibling directory, applies the selected creation flow,
+    /// persists a tracking entry, and returns it.
     @discardableResult
     public func create(
         project: Project,
@@ -46,13 +49,18 @@ public struct SpaceService: Sendable {
         let finalName = Naming.ensureUniqueName(parent: parent, base: metadata.baseName)
         let dest = parent.appendingPathComponent(finalName)
 
-        try shell.check("git", ["clone", source.path, dest.path], cwd: parent)
-
         do {
-            try checkoutLocalBranchBeforeRemoteSync(creation, in: dest)
-            try syncRemotes(source: source, dest: dest)
-            try copyFiles(project.filesToInclude, into: dest)
-            try apply(creation, in: dest)
+            switch creation {
+            case .folder:
+                try FileManager.default.copyItem(at: source, to: dest)
+                try copyFiles(project.filesToInclude, into: dest)
+            default:
+                try shell.check("git", ["clone", source.path, dest.path], cwd: parent)
+                try checkoutLocalBranchBeforeRemoteSync(creation, in: dest)
+                try syncRemotes(source: source, dest: dest)
+                try copyFiles(project.filesToInclude, into: dest)
+                try apply(creation, in: dest)
+            }
         } catch {
             try? FileManager.default.removeItem(at: dest)
             throw error
@@ -98,6 +106,10 @@ public struct SpaceService: Sendable {
         case .pullRequest(let number):
             guard number > 0 else { throw SpaceServiceError.invalidPullRequest }
             return .pullRequest(number)
+        case .folder(let name):
+            let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { throw SpaceServiceError.emptySpaceName }
+            return .folder(name: name)
         }
     }
 
@@ -132,6 +144,12 @@ public struct SpaceService: Sendable {
                 Naming.pullRequestSpaceName(project: project.name, number: number),
                 "review",
                 "pr-\(number)")
+        case .folder(let name):
+            let slug = Naming.slugify(name)
+            return (
+                "\(project.name)__\(slug.isEmpty ? "space" : slug)",
+                "folder",
+                name)
         }
     }
 
@@ -149,6 +167,8 @@ public struct SpaceService: Sendable {
                 localBranch = nil
             }
         case .pullRequest:
+            localBranch = nil
+        case .folder:
             localBranch = nil
         }
 
@@ -175,6 +195,8 @@ public struct SpaceService: Sendable {
             }
         case .pullRequest(let number):
             try shell.check("gh", ["pr", "checkout", String(number)], cwd: repo)
+        case .folder:
+            break
         }
     }
 

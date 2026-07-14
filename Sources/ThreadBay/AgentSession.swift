@@ -60,7 +60,7 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
     }
 
     nonisolated let id = UUID()
-    let space: TrackedSpace
+    private(set) var space: TrackedSpace
     let agent: AgentDefinition
     let startedAt = Date()
     let terminalView: SessionTerminalView
@@ -129,6 +129,11 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
             else { return }
             kill(pid, SIGKILL)
         }
+    }
+
+    func updateSpace(_ space: TrackedSpace) {
+        guard self.space.name == space.name else { return }
+        self.space = space
     }
 
     // MARK: - Launch command

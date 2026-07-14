@@ -18,6 +18,10 @@
 "new_space.mode.feature" = "New branch";
 "new_space.mode.existing" = "Existing branch";
 "new_space.mode.pr" = "Pull request";
+"new_space.mode.folder" = "Folder copy";
+"new_space.plain_folder" = "Copy this folder (no Git repository required)";
+"new_space.space_name" = "Space name";
+"new_space.space_name_placeholder" = "My workspace";
 "new_space.branch_name" = "Branch name";
 "new_space.branch_placeholder" = "feat/my-feature";
 "new_space.base_branch" = "Base branch";
@@ -48,7 +52,7 @@
 "settings.theme.light" = "Light";
 "settings.theme.dark" = "Dark";
 "settings.add" = "Add";
-"settings.choose_repo" = "Choose the source Git repository folder";
+"settings.choose_repo" = "Choose the source project folder";
 "settings.agent_name" = "Name";
 "settings.agent_command" = "Command (empty = interactive shell)";
 "settings.add_agent" = "Add Agent";
@@ -77,6 +81,19 @@
 "main.launch_agent" = "Launch Agent";
 "main.open_in" = "Open in…";
 "main.created_on" = "Created %@";
+"main.folder_copy" = "Folder copy";
+"management.title" = "Manage Spaces";
+"management.spaces" = "Spaces";
+"management.branches" = "Branches";
+"management.rename" = "Rename";
+"management.rename_title" = "Rename “%@”";
+"management.display_name" = "Display name";
+"management.rename_help" = "Only the name shown in ThreadBay changes. The folder is not renamed.";
+"management.delete_branch_title" = "Delete branch “%@”?";
+"management.delete_branch_help" = "Only the local branch will be deleted. Git will refuse if it is current, unmerged, or used by another worktree.";
+"management.current_branch" = "current";
+"management.not_git" = "This project does not use Git";
+"management.not_git_help" = "There are no branches to manage for this project.";
 "menu.no_spaces" = "No Spaces";
 "menu.launch" = "Launch %@";
 "menu.open_in" = "Open in %@";
@@ -110,6 +127,7 @@
 "error.project_exists" = "A project named “%@” already exists.";
 "error.branch_empty" = "The branch name is empty.";
 "error.base_branch_empty" = "The base branch is empty.";
+"error.space_name_empty" = "The space name is empty.";
 "error.invalid_pr" = "The pull request number must be greater than zero.";
 "error.destination_exists" = "The destination already exists: %@";
 "error.tool_not_found" = "Tool not found: “%@”. Make sure it is installed and available in PATH.";

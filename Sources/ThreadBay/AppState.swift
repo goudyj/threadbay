@@ -68,7 +68,11 @@ final class AppState: ObservableObject {
 
     var groups: [ProjectGroup] {
         Dictionary(grouping: spaces, by: \.projectName)
-            .map { ProjectGroup(id: $0.key, spaces: $0.value.sorted { $0.name < $1.name }) }
+            .map {
+                ProjectGroup(
+                    id: $0.key,
+                    spaces: $0.value.sorted { $0.displayTitle < $1.displayTitle })
+            }
             .sorted { $0.id < $1.id }
     }
 
@@ -85,6 +89,12 @@ final class AppState: ObservableObject {
     }
 
     // MARK: - Git queries (for the create form)
+
+    func isGitProject(_ project: Project) async -> Bool {
+        let git = gitService
+        let repo = URL(fileURLWithPath: project.path)
+        return await Task.detached { git.isRepository(repo: repo) }.value
+    }
 
     func listBranches(project: Project) async -> [GitBranch] {
         let git = gitService
@@ -164,6 +174,34 @@ final class AppState: ObservableObject {
             } catch {
                 errorMessage = localizedError(error)
             }
+        }
+    }
+
+    func rename(_ space: TrackedSpace, displayName: String) {
+        do {
+            var store = try SpaceStore.load()
+            try store.rename(named: space.name, displayName: displayName)
+            reload()
+            if let updated = spaces.first(where: { $0.name == space.name }) {
+                sessionManager.updateSpace(updated)
+            }
+        } catch {
+            errorMessage = localizedError(error)
+        }
+    }
+
+    func deleteBranch(_ branch: GitBranch, from project: Project) async -> Bool {
+        guard case .local = branch.location else { return false }
+        let git = gitService
+        let repo = URL(fileURLWithPath: project.path)
+        do {
+            try await Task.detached {
+                try git.deleteLocalBranch(named: branch.name, repo: repo)
+            }.value
+            return true
+        } catch {
+            errorMessage = localizedError(error)
+            return false
         }
     }
 
@@ -335,6 +373,8 @@ final class AppState: ObservableObject {
                 return localized("error.branch_empty")
             case .emptyBaseBranch:
                 return localized("error.base_branch_empty")
+            case .emptySpaceName:
+                return localized("error.space_name_empty")
             case .invalidPullRequest:
                 return localized("error.invalid_pr")
             case .destinationExists(let path):

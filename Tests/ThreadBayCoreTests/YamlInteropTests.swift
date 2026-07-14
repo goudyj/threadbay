@@ -54,6 +54,8 @@ final class YamlInteropTests: XCTestCase {
         let space = registry.spaces[0]
         XCTAssertEqual(space.projectName, "threadbay")
         XCTAssertEqual(space.name, "threadbay__feature-x")
+        XCTAssertNil(space.displayName)
+        XCTAssertEqual(space.displayTitle, "threadbay__feature-x")
         XCTAssertEqual(space.taskType, "feature")
         XCTAssertEqual(space.taskValue, "feat/x")
     }
@@ -67,5 +69,25 @@ final class YamlInteropTests: XCTestCase {
         XCTAssertTrue(yaml.contains("task_type:"), yaml)
         XCTAssertTrue(yaml.contains("created_at:"), yaml)
         XCTAssertFalse(yaml.contains("projectName"), yaml)
+    }
+
+    func testSpaceDisplayNameRoundTripsWithoutChangingTechnicalName() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("threadbay-spaces-\(UUID().uuidString).yaml")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let space = TrackedSpace(
+            projectName: "p", destination: "/tmp/p__feature-x", name: "p__feature-x",
+            createdAt: "2026-07-10T12:34:56Z", taskType: "feature", taskValue: "feat/x")
+        var store = try SpaceStore.load(url: url)
+        try store.add(space)
+
+        try store.rename(named: space.name, displayName: "Search feature")
+
+        let renamed = try XCTUnwrap(SpaceStore.load(url: url).spaces.first)
+        XCTAssertEqual(renamed.name, "p__feature-x")
+        XCTAssertEqual(renamed.destination, "/tmp/p__feature-x")
+        XCTAssertEqual(renamed.displayName, "Search feature")
+        XCTAssertEqual(renamed.displayTitle, "Search feature")
+        XCTAssertTrue(try String(contentsOf: url).contains("display_name: Search feature"))
     }
 }

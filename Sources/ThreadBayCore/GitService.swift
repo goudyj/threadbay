@@ -1,11 +1,20 @@
 import Foundation
 
-/// Read-only git queries used to populate the create form.
+/// Git operations used by the create and space-management screens.
 public struct GitService: Sendable {
     private let shell: Shell
 
     public init(shell: Shell = .shared) {
         self.shell = shell
+    }
+
+    /// Whether `repo` itself is a Git worktree root. A nested folder does not
+    /// count because ThreadBay clones configured projects by their root path.
+    public func isRepository(repo: URL) -> Bool {
+        guard let root = try? shell.check("git", ["rev-parse", "--show-toplevel"], cwd: repo)
+        else { return false }
+        return URL(fileURLWithPath: root).resolvingSymlinksInPath().standardizedFileURL
+            == repo.resolvingSymlinksInPath().standardizedFileURL
     }
 
     /// Local and remote branches offered by the create form. Local and remote
@@ -51,6 +60,12 @@ public struct GitService: Sendable {
         let result = try? shell.run("git", ["branch", "--show-current"], cwd: repo)
         guard let branch = result?.stdout, !branch.isEmpty else { return nil }
         return branch
+    }
+
+    /// Deletes only a merged local branch. Git itself rejects the current
+    /// branch, an unmerged branch, or one checked out in another worktree.
+    public func deleteLocalBranch(named name: String, repo: URL) throws {
+        try shell.check("git", ["branch", "-d", "--", name], cwd: repo)
     }
 }
 

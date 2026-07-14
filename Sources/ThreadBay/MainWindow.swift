@@ -10,6 +10,7 @@ struct MainWindow: View {
 
     @State private var showNew = false
     @State private var showSettings = false
+    @State private var showManagement = false
 
     private var selectedSpace: TrackedSpace? {
         app.spaces.first { $0.name == app.selectedSpaceName }
@@ -39,6 +40,7 @@ struct MainWindow: View {
         }
         .frame(minWidth: 860, minHeight: 540)
         .sheet(isPresented: $showNew) { NewSpaceView().environmentObject(app) }
+        .sheet(isPresented: $showManagement) { SpaceManagementView().environmentObject(app) }
         .sheet(isPresented: $showSettings) { SettingsView().environmentObject(app) }
         .onAppear {
             app.reload()
@@ -77,6 +79,9 @@ struct MainWindow: View {
             Spacer()
             Button { app.reload() } label: {
                 Label(app.localized("common.refresh"), systemImage: "arrow.clockwise")
+            }
+            Button { showManagement = true } label: {
+                Label(app.localized("management.title"), systemImage: "slider.horizontal.3")
             }
             Button { showSettings = true } label: {
                 Label(app.localized("common.settings"), systemImage: "gearshape")
@@ -152,7 +157,9 @@ private struct SidebarSpaceRow: View {
 
     var body: some View {
         HStack {
-            Label(space.name, systemImage: "arrow.triangle.branch")
+            Label(
+                space.displayTitle,
+                systemImage: space.taskType == "folder" ? "folder" : "arrow.triangle.branch")
                 .lineLimit(1)
             Spacer()
             let running = manager.runningCount(for: space)
@@ -196,7 +203,7 @@ private struct SpaceDetail: View {
             TerminalPane(manager: app.sessionManager, space: space)
         }
         .confirmationDialog(
-            app.localized("main.delete_title", space.name),
+            app.localized("main.delete_title", space.displayTitle),
             isPresented: $confirmingDelete,
             titleVisibility: .visible
         ) {
@@ -218,8 +225,10 @@ private struct SpaceDetail: View {
     private var header: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(space.name).font(.headline)
-                Label(space.taskValue, systemImage: "arrow.triangle.branch")
+                Text(space.displayTitle).font(.headline)
+                Label(
+                    space.taskType == "folder" ? app.localized("main.folder_copy") : space.taskValue,
+                    systemImage: space.taskType == "folder" ? "folder" : "arrow.triangle.branch")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Text(space.destination)
@@ -260,8 +269,10 @@ struct SpaceRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(space.name).font(.headline)
-                Label(space.taskValue, systemImage: "arrow.triangle.branch")
+                Text(space.displayTitle).font(.headline)
+                Label(
+                    space.taskType == "folder" ? app.localized("main.folder_copy") : space.taskValue,
+                    systemImage: space.taskType == "folder" ? "folder" : "arrow.triangle.branch")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Text(space.destination)
@@ -302,7 +313,7 @@ struct SpaceRow: View {
         }
         .padding(.vertical, 4)
         .confirmationDialog(
-            app.localized("main.delete_title", space.name),
+            app.localized("main.delete_title", space.displayTitle),
             isPresented: $confirmingDelete,
             titleVisibility: .visible
         ) {

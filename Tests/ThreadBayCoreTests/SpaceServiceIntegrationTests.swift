@@ -106,6 +106,51 @@ final class SpaceServiceIntegrationTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: dest.appendingPathComponent("REMOTE.md").path))
     }
 
+    func testCreateSpaceFromPlainFolderCopiesFilesAndTracksIt() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("threadbay-folder-it-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appendingPathComponent("notes")
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        try "hello\n".write(
+            to: source.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
+        let spacesURL = root.appendingPathComponent("spaces.yaml")
+
+        let space = try SpaceService().create(
+            project: Project(name: "notes", path: source.path),
+            creation: .folder(name: "Experiment"),
+            spacesURL: spacesURL)
+
+        XCTAssertEqual(space.name, "notes__experiment")
+        XCTAssertEqual(space.taskType, "folder")
+        XCTAssertEqual(space.taskValue, "Experiment")
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: root.appendingPathComponent("notes__experiment/README.md").path))
+        XCTAssertEqual(try SpaceStore.load(url: spacesURL).spaces, [space])
+    }
+
+    func testGitServiceIdentifiesRepositoriesAndSafelyDeletesLocalBranch() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let gitService = GitService()
+        try git(["branch", "temporary"], in: fixture.source)
+
+        XCTAssertTrue(gitService.isRepository(repo: fixture.source))
+        XCTAssertFalse(gitService.isRepository(repo: fixture.parent))
+
+        try gitService.deleteLocalBranch(named: "temporary", repo: fixture.source)
+        XCTAssertFalse(try gitService.listBranches(repo: fixture.source).contains(
+            GitBranch(name: "temporary", location: .local)))
+
+        try git(["checkout", "-b", "unmerged"], in: fixture.source)
+        try commitFile("unmerged\n", named: "UNMERGED.md", message: "unmerged", in: fixture.source)
+        try git(["checkout", "main"], in: fixture.source)
+        XCTAssertThrowsError(
+            try gitService.deleteLocalBranch(named: "unmerged", repo: fixture.source))
+        XCTAssertTrue(try gitService.listBranches(repo: fixture.source).contains(
+            GitBranch(name: "unmerged", location: .local)))
+    }
+
     // MARK: - Helpers
 
     private func makeFixture() throws -> Fixture {

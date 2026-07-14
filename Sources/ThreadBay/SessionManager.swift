@@ -121,6 +121,11 @@ final class SessionManager: ObservableObject {
         }
     }
 
+    func updateSpace(_ space: TrackedSpace) {
+        sessions(for: space).forEach { $0.updateSpace(space) }
+        objectWillChange.send()
+    }
+
     func stopAll() {
         for session in sessions {
             session.stop()
@@ -176,7 +181,7 @@ final class SessionManager: ObservableObject {
             session.attention = .turnEnded
             notifications.post(
                 title: localized("notification.turn_completed", session.agent.name),
-                body: event.message ?? session.space.name,
+                body: event.message ?? session.space.displayTitle,
                 sessionID: session.id)
         case .needsInput:
             // The agent is paused on a question, not computing.
@@ -184,7 +189,7 @@ final class SessionManager: ObservableObject {
             session.attention = .needsInput
             notifications.post(
                 title: localized("notification.needs_input", session.agent.name),
-                body: event.message ?? session.space.name,
+                body: event.message ?? session.space.displayTitle,
                 sessionID: session.id)
         case .unknown:
             break
@@ -199,7 +204,7 @@ final class SessionManager: ObservableObject {
         let detail = code.map { localized("notification.exit_code", $0) } ?? ""
         notifications.post(
             title: localized("notification.session_ended", session.agent.name, detail),
-            body: session.space.name,
+            body: session.space.displayTitle,
             sessionID: session.id)
     }
 

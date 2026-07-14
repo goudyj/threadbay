@@ -18,6 +18,10 @@
 "new_space.mode.feature" = "Nouvelle branche";
 "new_space.mode.existing" = "Branche existante";
 "new_space.mode.pr" = "Pull request";
+"new_space.mode.folder" = "Copie de dossier";
+"new_space.plain_folder" = "Copier ce dossier (aucun dépôt Git requis)";
+"new_space.space_name" = "Nom de l’espace";
+"new_space.space_name_placeholder" = "Mon espace";
 "new_space.branch_name" = "Nom de la branche";
 "new_space.branch_placeholder" = "feat/ma-fonctionnalite";
 "new_space.base_branch" = "Branche de base";
@@ -48,7 +52,7 @@
 "settings.theme.light" = "Clair";
 "settings.theme.dark" = "Sombre";
 "settings.add" = "Ajouter";
-"settings.choose_repo" = "Choisissez le dossier du dépôt Git source";
+"settings.choose_repo" = "Choisissez le dossier du projet source";
 "settings.agent_name" = "Nom";
 "settings.agent_command" = "Commande (vide = shell interactif)";
 "settings.add_agent" = "Ajouter un agent";
@@ -77,6 +81,19 @@
 "main.launch_agent" = "Lancer un agent";
 "main.open_in" = "Ouvrir dans…";
 "main.created_on" = "Créé le %@";
+"main.folder_copy" = "Copie de dossier";
+"management.title" = "Gestion des espaces";
+"management.spaces" = "Espaces";
+"management.branches" = "Branches";
+"management.rename" = "Renommer";
+"management.rename_title" = "Renommer « %@ »";
+"management.display_name" = "Nom affiché";
+"management.rename_help" = "Seul le nom affiché dans ThreadBay change. Le dossier n’est pas renommé.";
+"management.delete_branch_title" = "Supprimer la branche « %@ » ?";
+"management.delete_branch_help" = "Seule la branche locale sera supprimée. Git refusera si elle est courante, non fusionnée ou utilisée par un autre worktree.";
+"management.current_branch" = "courante";
+"management.not_git" = "Ce projet n’utilise pas Git";
+"management.not_git_help" = "Il n’y a aucune branche à gérer pour ce projet.";
 "menu.no_spaces" = "Aucun espace";
 "menu.launch" = "Lancer %@";
 "menu.open_in" = "Ouvrir dans %@";
@@ -110,6 +127,7 @@
 "error.project_exists" = "Un projet nommé « %@ » existe déjà.";
 "error.branch_empty" = "Le nom de la branche est vide.";
 "error.base_branch_empty" = "La branche de base est vide.";
+"error.space_name_empty" = "Le nom de l’espace est vide.";
 "error.invalid_pr" = "Le numéro de pull request doit être supérieur à zéro.";
 "error.destination_exists" = "La destination existe déjà : %@";
 "error.tool_not_found" = "Outil introuvable : « %@ ». Vérifiez qu’il est installé et dans le PATH.";
