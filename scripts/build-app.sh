@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds the release executables and wraps them into a double-clickable ThreadBay.app
+# Builds the executables and wraps them into a double-clickable ThreadBay.app
 # with LSUIElement (menu-bar app, no Dock icon). Ad-hoc signs it so it launches
 # locally without Gatekeeper prompts.
 set -euo pipefail
@@ -11,11 +11,20 @@ HELPER_NAME="ThreadBayNotify"
 APP_DIR="${APP_NAME}.app"
 BUNDLE_ID="com.jlex.threadbay.app"
 VERSION="0.1.0"
+CONFIGURATION="${1:-release}"
 
-echo "→ swift build -c release"
-swift build -c release
+case "${CONFIGURATION}" in
+    debug|release) ;;
+    *)
+        echo "Usage: $0 [debug|release]" >&2
+        exit 2
+        ;;
+esac
 
-BIN_DIR="$(swift build -c release --show-bin-path)"
+echo "→ swift build -c ${CONFIGURATION}"
+swift build -c "${CONFIGURATION}"
+
+BIN_DIR="$(swift build -c "${CONFIGURATION}" --show-bin-path)"
 BIN_PATH="${BIN_DIR}/${APP_NAME}"
 HELPER_PATH="${BIN_DIR}/${HELPER_NAME}"
 

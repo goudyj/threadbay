@@ -10,7 +10,7 @@ Tests mirror the package targets in `Tests/ThreadBayCoreTests/` and `Tests/Threa
 
 - `swift build` compiles the package in debug mode.
 - `swift test` runs all XCTest unit and offline Git integration tests.
-- `swift run ThreadBay` builds and launches the app from a terminal.
+- `./scripts/run-app.sh` builds and opens a debug app bundle so macOS notifications work.
 - `./scripts/build-app.sh` creates and ad-hoc signs a release `ThreadBay.app` bundle.
 
 Open `Package.swift` directly in Xcode when working with previews or macOS UI tooling.
