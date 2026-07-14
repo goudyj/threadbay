@@ -45,6 +45,7 @@ public struct SpaceService: Sendable {
         let metadata = creationMetadata(project: project, creation: creation)
 
         let source = URL(fileURLWithPath: project.path)
+        let localUpstream = try remoteUpstream(for: creation, in: source)
         let parent = source.deletingLastPathComponent()
         let finalName = Naming.ensureUniqueName(parent: parent, base: metadata.baseName)
         let dest = parent.appendingPathComponent(finalName)
@@ -59,7 +60,7 @@ public struct SpaceService: Sendable {
                 try checkoutLocalBranchBeforeRemoteSync(creation, in: dest)
                 try syncRemotes(source: source, dest: dest)
                 try copyFiles(project.filesToInclude, into: dest)
-                try apply(creation, in: dest)
+                try apply(creation, localUpstream: localUpstream, in: dest)
             }
         } catch {
             try? FileManager.default.removeItem(at: dest)
@@ -158,35 +159,54 @@ public struct SpaceService: Sendable {
     private func checkoutLocalBranchBeforeRemoteSync(
         _ creation: SpaceCreation, in repo: URL
     ) throws {
-        let localBranch: GitBranch?
-        switch creation {
-        case .feature(_, let base), .existingBranch(let base):
-            if case .local = base.location {
-                localBranch = base
-            } else {
-                localBranch = nil
-            }
-        case .pullRequest:
-            localBranch = nil
-        case .folder:
-            localBranch = nil
-        }
-
-        if let localBranch {
+        if let localBranch = selectedLocalBranch(in: creation) {
             try shell.check("git", ["checkout", localBranch.name], cwd: repo)
         }
     }
 
-    private func apply(_ creation: SpaceCreation, in repo: URL) throws {
+    private func selectedLocalBranch(in creation: SpaceCreation) -> GitBranch? {
+        switch creation {
+        case .feature(_, let base), .existingBranch(let base):
+            if case .local = base.location {
+                return base
+            }
+            return nil
+        case .pullRequest, .folder:
+            return nil
+        }
+    }
+
+    /// The clone temporarily calls the source repo `origin`, so capture the
+    /// selected local branch's actual remote upstream before cloning it.
+    private func remoteUpstream(for creation: SpaceCreation, in repo: URL) throws -> String? {
+        guard let branch = selectedLocalBranch(in: creation) else { return nil }
+        let output = try shell.check(
+            "git",
+            [
+                "for-each-ref",
+                "--format=%(upstream:remotename)%09%(upstream:short)",
+                "refs/heads/\(branch.name)",
+            ],
+            cwd: repo)
+        let fields = output.split(whereSeparator: \Character.isWhitespace)
+        guard fields.count == 2, fields[0] != "." else { return nil }
+        return String(fields[1])
+    }
+
+    private func apply(
+        _ creation: SpaceCreation, localUpstream: String?, in repo: URL
+    ) throws {
         switch creation {
         case .feature(let branchName, let base):
             try shell.check("git", ["fetch", "--all", "--prune"], cwd: repo)
+            try fastForward(to: localUpstream, in: repo)
             if case .remote(let remote) = base.location {
                 try shell.check("git", ["checkout", "\(remote)/\(base.name)"], cwd: repo)
             }
             try shell.check("git", ["checkout", "-b", branchName], cwd: repo)
         case .existingBranch(let branch):
             try shell.check("git", ["fetch", "--all", "--prune"], cwd: repo)
+            try fastForward(to: localUpstream, in: repo)
             if case .remote(let remote) = branch.location {
                 try shell.check(
                     "git",
@@ -198,6 +218,11 @@ public struct SpaceService: Sendable {
         case .folder:
             break
         }
+    }
+
+    private func fastForward(to upstream: String?, in repo: URL) throws {
+        guard let upstream else { return }
+        try shell.check("git", ["merge", "--ff-only", "--", upstream], cwd: repo)
     }
 
     private func syncRemotes(source: URL, dest: URL) throws {

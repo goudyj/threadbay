@@ -76,6 +76,67 @@ final class SpaceServiceIntegrationTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: dest.appendingPathComponent("LOCAL.md").path))
     }
 
+    func testCreateFromLocalBranchFastForwardsItsRemoteUpstream() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        try git(["remote", "rename", "origin", "upstream"], in: fixture.source)
+        try commitFile("remote\n", named: "REMOTE.md", message: "remote", in: fixture.source)
+        try git(["push", "upstream", "main"], in: fixture.source)
+        try git(["reset", "--hard", "HEAD~1"], in: fixture.source)
+
+        let project = Project(name: "proj", path: fixture.source.path)
+        let space = try SpaceService().create(
+            project: project,
+            creation: .existingBranch(GitBranch(name: "main", location: .local)),
+            spacesURL: fixture.spacesURL)
+        let dest = URL(fileURLWithPath: space.destination)
+
+        XCTAssertEqual(try currentBranch(in: dest), "main")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dest.appendingPathComponent("REMOTE.md").path))
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: fixture.source.appendingPathComponent("REMOTE.md").path))
+    }
+
+    func testCreateFeatureFromLocalBaseFastForwardsBeforeCreatingBranch() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        try commitFile("remote\n", named: "REMOTE.md", message: "remote", in: fixture.source)
+        try git(["push", "origin", "main"], in: fixture.source)
+        try git(["reset", "--hard", "HEAD~1"], in: fixture.source)
+
+        let project = Project(name: "proj", path: fixture.source.path)
+        let space = try SpaceService().create(
+            project: project,
+            creation: .feature(
+                branchName: "feat/fresh-base",
+                base: GitBranch(name: "main", location: .local)),
+            spacesURL: fixture.spacesURL)
+        let dest = URL(fileURLWithPath: space.destination)
+
+        XCTAssertEqual(try currentBranch(in: dest), "feat/fresh-base")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dest.appendingPathComponent("REMOTE.md").path))
+    }
+
+    func testCreateFromDivergedLocalBranchFailsWithoutMerging() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        try commitFile("remote\n", named: "REMOTE.md", message: "remote", in: fixture.source)
+        try git(["push", "origin", "main"], in: fixture.source)
+        try git(["reset", "--hard", "HEAD~1"], in: fixture.source)
+        try commitFile("local\n", named: "LOCAL.md", message: "local", in: fixture.source)
+
+        let project = Project(name: "proj", path: fixture.source.path)
+        XCTAssertThrowsError(try SpaceService().create(
+            project: project,
+            creation: .existingBranch(GitBranch(name: "main", location: .local)),
+            spacesURL: fixture.spacesURL))
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: fixture.parent.appendingPathComponent("proj__main").path))
+    }
+
     func testCreateFromRemoteOnlyBranchTracksSelectedRemote() throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.root) }
