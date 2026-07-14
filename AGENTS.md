@@ -6,6 +6,10 @@ ThreadBay is a Swift 6 package targeting macOS 14+. `Sources/ThreadBayCore/` con
 
 Tests mirror the package targets in `Tests/ThreadBayCoreTests/` and `Tests/ThreadBayTests/`. Documentation is in `docs/`, while `scripts/build-app.sh` assembles the release executable into `ThreadBay.app`. Treat `.build/` and `ThreadBay.app/` as generated outputs.
 
+## Documentation & Localization
+
+Write all documentation in English, including the README, files under `docs/`, and developer-facing documentation in the repository. ThreadBay is a multilingual app: keep user-facing strings localized and add or update the relevant resources under `Sources/ThreadBay/Resources/<locale>.lproj/` when changing UI copy.
+
 ## Build, Test, and Development Commands
 
 - `swift build` compiles the package in debug mode.

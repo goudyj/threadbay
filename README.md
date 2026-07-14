@@ -1,30 +1,30 @@
 # ThreadBay
 
-ThreadBay est une app macOS qui permet de travailler sur plusieurs branches Git en parallèle et de lancer des agents de développement dans des terminaux intégrés.
+ThreadBay is a macOS app for working on multiple Git branches in parallel and running development agents in integrated terminals.
 
-## Comment fonctionne l'app
+## How It Works
 
-1. Ajoutez un projet depuis les réglages en sélectionnant son dépôt Git local.
-2. Créez un **espace** depuis une nouvelle branche, une branche existante ou une pull request GitHub.
-3. ThreadBay crée un clone indépendant à côté du dépôt source, puis y ouvre la branche choisie. Chaque tâche dispose ainsi de son propre dossier et n'affecte pas les autres espaces.
-4. Depuis cet espace, lancez Claude Code, Codex, un shell ou une commande personnalisée dans le terminal intégré. Plusieurs sessions peuvent tourner en même temps.
-5. Ouvrez le dossier dans VS Code, Zed, Cursor ou le Finder. La suppression d'un espace arrête ses sessions, supprime son dossier et le retire de ThreadBay.
+1. Add a project from the settings by selecting its local Git repository.
+2. Create a **space** from a new branch, an existing branch, or a GitHub pull request.
+3. ThreadBay creates an independent clone next to the source repository, then checks out the selected branch. Each task has its own directory and does not affect other spaces.
+4. From that space, launch Claude Code, Codex, a shell, or a custom command in the integrated terminal. Multiple sessions can run at the same time.
+5. Open the directory in VS Code, Zed, Cursor, or Finder. Deleting a space stops its sessions, removes its directory, and removes it from ThreadBay.
 
-L'app reste accessible depuis la barre des menus et peut envoyer une notification lorsqu'un agent termine un tour ou attend une action. Les projets, espaces et agents sont conservés dans des fichiers YAML locaux :
+The app remains accessible from the menu bar and can send a notification when an agent finishes a turn or waits for an action. Projects, spaces, and agents are stored in local YAML files:
 
 - `~/Library/Application Support/com.jlex.threadbay/settings.yaml`
 - `~/.threadbay/spaces.yaml`
 - `~/Library/Application Support/com.jlex.threadbay/agents.yaml`
 
-## Prérequis
+## Requirements
 
-- macOS 14 ou plus récent ;
-- Swift 6, fourni par Xcode ou les Command Line Tools ;
-- Git ;
-- `gh` pour créer un espace depuis une pull request ;
-- les commandes des agents ou éditeurs que vous souhaitez utiliser (`claude`, `codex`, `code`, `zed`, `cursor`, etc.).
+- macOS 14 or later;
+- Swift 6, provided by Xcode or the Command Line Tools;
+- Git;
+- `gh` to create a space from a pull request;
+- the commands for the agents or editors you want to use (`claude`, `codex`, `code`, `zed`, `cursor`, etc.).
 
-## Construire depuis le code source
+## Build from Source
 
 ```bash
 git clone https://github.com/goudyj/threadbay.git
@@ -34,10 +34,10 @@ swift test
 ./scripts/run-app.sh
 ```
 
-Swift Package Manager télécharge automatiquement les dépendances au premier build. Le lanceur construit en mode debug puis ouvre le bundle macOS, nécessaire pour tester les notifications. Pour créer l'app en mode release sans la lancer :
+Swift Package Manager downloads dependencies automatically during the first build. The launcher builds in debug mode, then opens the macOS app bundle, which is required to test notifications. To create a release build without launching it:
 
 ```bash
 ./scripts/build-app.sh
 ```
 
-Le script compile en mode release, assemble `ThreadBay.app` à la racine du projet et la signe localement. Vous pouvez ensuite la déplacer dans le dossier `Applications`.
+The script compiles in release mode, assembles `ThreadBay.app` at the project root, and signs it locally. You can then move it to the `Applications` folder.
