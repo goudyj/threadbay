@@ -175,3 +175,24 @@
 "error.event_socket_creation" = "无法创建事件套接字。";
 "error.event_socket_path" = "事件套接字路径过长：%@";
 "error.event_socket_bind" = "无法绑定事件套接字：%@";
+
+"new_space.kind" = "类型";
+"new_space.kind.project" = "项目";
+"new_space.kind.terminal" = "终端";
+"new_space.terminal_help" = "在个人文件夹中打开终端，不会创建任何文件夹或克隆。";
+"main.success" = "成功";
+"main.terminal_space" = "终端";
+"main.delete_terminal" = "该空间将从 ThreadBay 中移除。不会删除任何文件夹；正在运行的代理将被停止。";
+"git.after_commit.force_push" = "推送当前分支（force with lease）";
+"git.push" = "推送分支";
+"git.push_force" = "推送（force with lease）";
+"git.success.commit" = "已在分支“%@”上创建提交。";
+"git.success.push" = "已在“%@”上创建并推送提交。";
+"git.success.force_push" = "已在“%@”上创建提交并推送（force with lease）。";
+"git.success.merge" = "已创建提交并合并到“%1$@”。您仍在分支“%2$@”上。";
+"git.success.merge_push" = "已创建提交，合并到“%1$@”并推送了目标分支。您仍在分支“%2$@”上。";
+"git.success.pushed" = "已推送分支“%@”。";
+"git.success.pushed_force" = "已推送分支“%@”（force with lease）。";
+"terminal.rename_tab" = "重命名标签页";
+"terminal.rename_title" = "重命名标签页“%@”";
+"terminal.tab_name" = "标签页名称";

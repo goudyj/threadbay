@@ -24,12 +24,26 @@ final class NamingTests: XCTestCase {
         XCTAssertEqual(components.last?.split(separator: "-").count, 2)
     }
 
-    func testGeneratedTitleOmitsProjectPrefix() {
-        let space = TrackedSpace(
+    func testGeneratedTitleUsesBranchForGitTasks() {
+        XCTAssertEqual(makeSpace(taskType: "feature", taskValue: "feat/x").displayTitle, "feat/x")
+        XCTAssertEqual(
+            makeSpace(taskType: "review", taskValue: "branch-fix/scroll").displayTitle,
+            "fix/scroll")
+        XCTAssertEqual(makeSpace(taskType: "review", taskValue: "pr-42").displayTitle, "PR #42")
+    }
+
+    func testGeneratedTitleOmitsProjectPrefixWithoutBranch() {
+        XCTAssertEqual(
+            makeSpace(taskType: "folder", taskValue: "project").displayTitle, "cosmic-otter")
+        XCTAssertEqual(
+            makeSpace(taskType: "terminal", taskValue: "terminal").displayTitle, "cosmic-otter")
+    }
+
+    private func makeSpace(taskType: String, taskValue: String) -> TrackedSpace {
+        TrackedSpace(
             projectName: "project", destination: "/tmp/project__cosmic-otter",
             name: "project__cosmic-otter", createdAt: "2026-07-10T12:34:56Z",
-            taskType: "feature", taskValue: "feat/x")
-        XCTAssertEqual(space.displayTitle, "cosmic-otter")
+            taskType: taskType, taskValue: taskValue)
     }
 
     func testEnsureUniqueNameAppendsSuffix() throws {

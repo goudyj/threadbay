@@ -69,9 +69,16 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
 
     @Published private(set) var state: State = .starting
     @Published var attention: Attention = .none
+    /// User-set tab label; empty or unset falls back to the agent name.
+    @Published var customName: String?
     /// Live "the agent is on a turn" flag (Claude `UserPromptSubmit` → `Stop`),
     /// unlike `attention` it is not sticky and never notifies.
     @Published var isWorking = false
+
+    var displayName: String {
+        let trimmed = customName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? agent.name : trimmed
+    }
 
     /// Installed by SessionManager; called on every state transition.
     var onStateChange: ((AgentSession) -> Void)?

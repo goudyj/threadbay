@@ -175,3 +175,24 @@
 "error.event_socket_creation" = "Impossible de créer le socket d’événements.";
 "error.event_socket_path" = "Le chemin du socket d’événements est trop long : %@";
 "error.event_socket_bind" = "Impossible d’attacher le socket d’événements : %@";
+
+"new_space.kind" = "Type";
+"new_space.kind.project" = "Projet";
+"new_space.kind.terminal" = "Terminal";
+"new_space.terminal_help" = "Ouvre un terminal dans votre dossier personnel. Aucun dossier ni clone n’est créé.";
+"main.success" = "Succès";
+"main.terminal_space" = "Terminal";
+"main.delete_terminal" = "L’espace sera retiré de ThreadBay. Aucun dossier ne sera supprimé ; les agents actifs seront arrêtés.";
+"git.after_commit.force_push" = "Pousser la branche courante (force with lease)";
+"git.push" = "Pousser la branche";
+"git.push_force" = "Pousser (force with lease)";
+"git.success.commit" = "Commit créé sur la branche « %@ ».";
+"git.success.push" = "Commit créé et poussé sur « %@ ».";
+"git.success.force_push" = "Commit créé et poussé (force with lease) sur « %@ ».";
+"git.success.merge" = "Commit créé et fusionné dans « %1$@ ». Vous êtes toujours sur la branche « %2$@ ».";
+"git.success.merge_push" = "Commit créé, fusionné dans « %1$@ », et la branche cible a été poussée. Vous êtes toujours sur la branche « %2$@ ».";
+"git.success.pushed" = "Branche « %@ » poussée.";
+"git.success.pushed_force" = "Branche « %@ » poussée (force with lease).";
+"terminal.rename_tab" = "Renommer l’onglet";
+"terminal.rename_title" = "Renommer l’onglet « %@ »";
+"terminal.tab_name" = "Nom de l’onglet";

@@ -55,7 +55,7 @@ struct MainWindow: View {
                                                 app.localized("management.rename"),
                                                 systemImage: "pencil")
                                         }
-                                        if space.taskType != "folder" {
+                                        if space.supportsGitActions {
                                             Divider()
                                             Button {
                                                 presentCommit(for: space)
@@ -88,6 +88,7 @@ struct MainWindow: View {
                                                     }
                                                 }
                                             }
+                                            PushMenuButtons(space: space)
                                             Button {
                                                 branchSwitchSpace = space
                                             } label: {
@@ -137,6 +138,11 @@ struct MainWindow: View {
         } message: {
             Text(app.noticeMessage ?? "")
         }
+        .alert(app.localized("main.success"), isPresented: successPresented) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(app.successMessage ?? "")
+        }
         .alert(
             app.localized("management.rename_title", renameSpace?.displayTitle ?? ""),
             isPresented: renamePresented
@@ -171,7 +177,6 @@ struct MainWindow: View {
             Button { showNew = true } label: {
                 Label(app.localized("main.new_space"), systemImage: "plus")
             }
-            .disabled(app.settings.projects.isEmpty)
             Spacer()
             Button { app.reload() } label: {
                 Label(app.localized("common.refresh"), systemImage: "arrow.clockwise")
@@ -249,6 +254,12 @@ struct MainWindow: View {
             set: { if !$0 { app.noticeMessage = nil } })
     }
 
+    private var successPresented: Binding<Bool> {
+        Binding(
+            get: { app.successMessage != nil },
+            set: { if !$0 { app.successMessage = nil } })
+    }
+
     private var renamePresented: Binding<Bool> {
         Binding(
             get: { renameSpace != nil },
@@ -259,13 +270,33 @@ struct MainWindow: View {
         guard let session = app.pendingCloseSession else {
             return app.localized("terminal.close_title")
         }
-        return app.localized("terminal.close_named_title", session.agent.name)
+        return app.localized("terminal.close_named_title", session.displayName)
     }
 
     private var closeSessionPresented: Binding<Bool> {
         Binding(
             get: { app.pendingCloseSessionID != nil },
             set: { if !$0 { app.cancelCloseSession() } })
+    }
+}
+
+/// Push / force-push pair shared by the sidebar context menu and the row's
+/// ellipsis menu.
+private struct PushMenuButtons: View {
+    @EnvironmentObject var app: AppState
+    let space: TrackedSpace
+
+    var body: some View {
+        Button {
+            Task { await app.push(in: space, forceWithLease: false) }
+        } label: {
+            Label(app.localized("git.push"), systemImage: "arrow.up.circle")
+        }
+        Button {
+            Task { await app.push(in: space, forceWithLease: true) }
+        } label: {
+            Label(app.localized("git.push_force"), systemImage: "arrow.up.circle.badge.clock")
+        }
     }
 }
 
@@ -282,9 +313,7 @@ private struct SidebarSpaceRow: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 1) {
-                Label(
-                    space.displayTitle,
-                    systemImage: space.taskType == "folder" ? "folder" : "shippingbox")
+                Label(space.displayTitle, systemImage: space.iconName)
                     .lineLimit(1)
                 if let branch = app.currentBranch(for: space) {
                     Label(branch, systemImage: "arrow.triangle.branch")
@@ -304,7 +333,7 @@ private struct SidebarSpaceRow: View {
                     .foregroundStyle(.white)
                     .help(badgeHelp(running: running))
             }
-            if space.taskType != "folder" {
+            if space.supportsGitActions {
                 Menu {
                     Button(app.localized("git.create_commit"), action: onCommit)
                     Menu(app.localized("git.automatic_commit")) {
@@ -323,6 +352,7 @@ private struct SidebarSpaceRow: View {
                         }
                     }
                     Divider()
+                    PushMenuButtons(space: space)
                     Button(app.localized("git.switch_branch"), action: onSwitchBranch)
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -369,27 +399,15 @@ private struct SpaceDetail: View {
             Button(app.localized("common.delete"), role: .destructive) { app.delete(space) }
             Button(app.localized("common.cancel"), role: .cancel) {}
         } message: {
-            Text(deleteMessage)
+            Text(app.deleteConfirmationMessage(for: space))
         }
-    }
-
-    private var deleteMessage: String {
-        let running = app.sessionManager.runningCount(for: space)
-        if running > 0 {
-            return app.localized("main.delete_folder_agents", space.destination, running)
-        }
-        return app.localized("main.delete_folder", space.destination)
     }
 
     private var header: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(space.displayTitle).font(.headline)
-                Label(
-                    space.taskType == "folder"
-                        ? app.localized("main.folder_copy")
-                        : app.currentBranch(for: space) ?? app.localized("git.unknown_branch"),
-                    systemImage: space.taskType == "folder" ? "folder" : "arrow.triangle.branch")
+                Label(spaceSubtitle(space, app: app), systemImage: spaceSubtitleIcon(space))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Text(space.destination)
@@ -431,11 +449,7 @@ struct SpaceRow: View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(space.displayTitle).font(.headline)
-                Label(
-                    space.taskType == "folder"
-                        ? app.localized("main.folder_copy")
-                        : app.currentBranch(for: space) ?? app.localized("git.unknown_branch"),
-                    systemImage: space.taskType == "folder" ? "folder" : "arrow.triangle.branch")
+                Label(spaceSubtitle(space, app: app), systemImage: spaceSubtitleIcon(space))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Text(space.destination)
@@ -483,7 +497,28 @@ struct SpaceRow: View {
             Button(app.localized("common.delete"), role: .destructive) { app.delete(space) }
             Button(app.localized("common.cancel"), role: .cancel) {}
         } message: {
-            Text(app.localized("main.delete_folder", space.destination))
+            Text(app.deleteConfirmationMessage(for: space))
         }
     }
+}
+
+extension TrackedSpace {
+    var iconName: String {
+        if isFolder { return "folder" }
+        if isTerminal { return "terminal" }
+        return "shippingbox"
+    }
+}
+
+/// Second line under a space title: its branch, or the space's nature when
+/// there is no repository to report on.
+@MainActor
+private func spaceSubtitle(_ space: TrackedSpace, app: AppState) -> String {
+    if space.isFolder { return app.localized("main.folder_copy") }
+    if space.isTerminal { return app.localized("main.terminal_space") }
+    return app.branchLabel(for: space)
+}
+
+private func spaceSubtitleIcon(_ space: TrackedSpace) -> String {
+    space.supportsGitActions ? "arrow.triangle.branch" : space.iconName
 }

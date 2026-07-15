@@ -107,14 +107,40 @@ public struct TrackedSpace: Codable, Identifiable, Hashable, Sendable {
     public var taskValue: String
 
     public var id: String { name }
+
+    /// `taskValue` encodings written by SpaceService for review spaces.
+    public static let reviewBranchPrefix = "branch-"
+    public static let reviewPullRequestPrefix = "pr-"
+
+    /// Default title when the user did not set a display name: the branch (or
+    /// pull request) the space was created for; the random folder suffix only
+    /// remains for spaces without a branch.
     public var generatedTitle: String {
-        guard let separator = name.range(of: "__") else { return name }
-        return String(name[separator.upperBound...])
+        switch taskType {
+        case "feature":
+            return taskValue
+        case "review":
+            if taskValue.hasPrefix(Self.reviewBranchPrefix) {
+                return String(taskValue.dropFirst(Self.reviewBranchPrefix.count))
+            }
+            if taskValue.hasPrefix(Self.reviewPullRequestPrefix) {
+                return "PR #\(taskValue.dropFirst(Self.reviewPullRequestPrefix.count))"
+            }
+            return taskValue
+        default:
+            guard let separator = name.range(of: "__") else { return name }
+            return String(name[separator.upperBound...])
+        }
     }
     public var displayTitle: String {
         let trimmed = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? generatedTitle : trimmed
     }
+    /// A terminal space tracks an existing directory (the home folder) instead
+    /// of owning a dedicated copy or clone.
+    public var isTerminal: Bool { taskType == "terminal" }
+    public var isFolder: Bool { taskType == "folder" }
+    public var supportsGitActions: Bool { !isFolder && !isTerminal }
 
     public init(
         projectName: String,

@@ -185,7 +185,7 @@ final class SessionManager: ObservableObject {
             session.isWorking = false
             session.attention = .turnEnded
             notifications.post(
-                title: localized("notification.turn_completed", session.agent.name),
+                title: localized("notification.turn_completed", session.displayName),
                 body: event.message ?? session.space.displayTitle,
                 sessionID: session.id)
         case .needsInput:
@@ -193,7 +193,7 @@ final class SessionManager: ObservableObject {
             session.isWorking = false
             session.attention = .needsInput
             notifications.post(
-                title: localized("notification.needs_input", session.agent.name),
+                title: localized("notification.needs_input", session.displayName),
                 body: event.message ?? session.space.displayTitle,
                 sessionID: session.id)
         case .unknown:
@@ -208,7 +208,7 @@ final class SessionManager: ObservableObject {
         session.attention = .sessionEnded
         let detail = code.map { localized("notification.exit_code", $0) } ?? ""
         notifications.post(
-            title: localized("notification.session_ended", session.agent.name, detail),
+            title: localized("notification.session_ended", session.displayName, detail),
             body: session.space.displayTitle,
             sessionID: session.id)
     }

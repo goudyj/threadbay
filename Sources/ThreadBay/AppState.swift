@@ -3,6 +3,13 @@ import Foundation
 import ThreadBayCore
 import SwiftUI
 
+/// What to do right after a successful commit.
+enum CommitFollowUp {
+    case none
+    case push(forceWithLease: Bool)
+    case merge(into: GitBranch, push: Bool)
+}
+
 /// Observable app state: loads settings + tracked spaces and exposes the actions
 /// wired to the UI. All blocking work (git, editors) runs off the main actor.
 @MainActor
@@ -20,6 +27,7 @@ final class AppState: ObservableObject {
     @Published private(set) var appLanguage: AppLanguage
     @Published var errorMessage: String?
     @Published var noticeMessage: String?
+    @Published var successMessage: String?
     @Published var isBusy = false
 
     /// Set by the menu bar to ask the window to present the create sheet.
@@ -127,6 +135,13 @@ final class AppState: ObservableObject {
         return await Task.detached { git.currentBranch(repo: repo) }.value
     }
 
+    /// Moves the pending error into the caller's hands. Sheets use this to
+    /// show the error inline, where the window-level alert cannot appear.
+    func consumeErrorMessage() -> String? {
+        defer { errorMessage = nil }
+        return errorMessage
+    }
+
     func gitState(for space: TrackedSpace) -> GitRepositoryState? {
         gitStates[space.name]
     }
@@ -136,7 +151,7 @@ final class AppState: ObservableObject {
     }
 
     func refreshGitState(for space: TrackedSpace) async {
-        guard space.taskType != "folder" else {
+        guard space.supportsGitActions else {
             gitStates[space.name] = nil
             return
         }
@@ -224,9 +239,56 @@ final class AppState: ObservableObject {
         in space: TrackedSpace,
         message: String,
         expectedFiles: [String],
-        push: Bool,
-        mergeInto target: GitBranch?,
-        pushMerge: Bool
+        followUp: CommitFollowUp
+    ) async -> Bool {
+        let git = gitService
+        let repo = URL(fileURLWithPath: space.destination)
+        return await performGitAction(in: space) {
+            try git.commitAll(
+                message: message, expectedFiles: expectedFiles, repo: repo)
+            switch followUp {
+            case .none:
+                break
+            case .push(let forceWithLease):
+                try git.pushCurrentBranch(forceWithLease: forceWithLease, repo: repo)
+            case .merge(let target, let push):
+                try git.mergeCurrentBranch(into: target, push: push, repo: repo)
+            }
+        } successMessage: { current in
+            switch followUp {
+            case .none:
+                return localized("git.success.commit", current)
+            case .push(forceWithLease: false):
+                return localized("git.success.push", current)
+            case .push(forceWithLease: true):
+                return localized("git.success.force_push", current)
+            case .merge(let target, push: false):
+                return localized("git.success.merge", target.name, current)
+            case .merge(let target, push: true):
+                return localized("git.success.merge_push", target.name, current)
+            }
+        }
+    }
+
+    /// Pushes the current branch without committing anything first.
+    func push(in space: TrackedSpace, forceWithLease: Bool) async -> Bool {
+        let git = gitService
+        let repo = URL(fileURLWithPath: space.destination)
+        return await performGitAction(in: space) {
+            try git.pushCurrentBranch(forceWithLease: forceWithLease, repo: repo)
+        } successMessage: { current in
+            localized(forceWithLease ? "git.success.pushed_force" : "git.success.pushed", current)
+        }
+    }
+
+    /// Shared scaffolding of the user-triggered git actions: refuses to run
+    /// while an agent is working, flags the app busy, runs `action` off the
+    /// main actor, refreshes the git state, and reports the outcome.
+    /// `successMessage` receives the current branch label.
+    private func performGitAction(
+        in space: TrackedSpace,
+        action: @escaping @Sendable () throws -> Void,
+        successMessage: (String) -> String
     ) async -> Bool {
         guard !sessionManager.isWorking(space) else {
             errorMessage = localized("error.agent_working_git_action")
@@ -234,19 +296,10 @@ final class AppState: ObservableObject {
         }
         isBusy = true
         defer { isBusy = false }
-        let git = gitService
-        let repo = URL(fileURLWithPath: space.destination)
         do {
-            try await Task.detached {
-                try git.commitAll(
-                    message: message, expectedFiles: expectedFiles, repo: repo)
-                if let target {
-                    try git.mergeCurrentBranch(into: target, push: pushMerge, repo: repo)
-                } else if push {
-                    try git.pushCurrentBranch(repo: repo)
-                }
-            }.value
+            try await Task.detached(operation: action).value
             await refreshGitState(for: space)
+            self.successMessage = successMessage(branchLabel(for: space))
             return true
         } catch {
             await refreshGitState(for: space)
@@ -255,13 +308,18 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// The current branch as shown in user-facing messages.
+    func branchLabel(for space: TrackedSpace) -> String {
+        currentBranch(for: space) ?? localized("git.unknown_branch")
+    }
+
     private func refreshGitStates(for spaces: [TrackedSpace]) async {
         let git = gitService
         let states = await withTaskGroup(
             of: (String, GitRepositoryState?).self,
             returning: [String: GitRepositoryState].self
         ) { group in
-            for space in spaces where space.taskType != "folder" {
+            for space in spaces where space.supportsGitActions {
                 group.addTask {
                     let repo = URL(fileURLWithPath: space.destination)
                     return (space.name, try? git.repositoryState(repo: repo))
@@ -324,6 +382,40 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// Creates a tracked terminal space (home directory, no copy or clone) and
+    /// opens a shell session in it right away.
+    func createTerminalSpace(displayName: String? = nil) async -> Bool {
+        isBusy = true
+        defer { isBusy = false }
+        let service = spaceService
+        do {
+            let space = try await Task.detached {
+                try service.createTerminal(displayName: displayName)
+            }.value
+            spaces.append(space)
+            if let shell = agents.first(where: { $0.kind == .shell }) {
+                launchAgent(shell, in: space)
+            } else {
+                pendingSelectSpace = space.name
+            }
+            return true
+        } catch {
+            errorMessage = localizedError(error)
+            return false
+        }
+    }
+
+    /// Body of the delete-confirmation dialogs: a terminal space is only
+    /// untracked, anything else loses its folder (and its running agents).
+    func deleteConfirmationMessage(for space: TrackedSpace) -> String {
+        guard !space.isTerminal else { return localized("main.delete_terminal") }
+        let running = sessionManager.runningCount(for: space)
+        if running > 0 {
+            return localized("main.delete_folder_agents", space.destination, running)
+        }
+        return localized("main.delete_folder", space.destination)
+    }
+
     func delete(_ space: TrackedSpace) {
         // Agents must not outlive the folder they run in.
         sessionManager.closeSessions(for: space)
@@ -369,8 +461,10 @@ final class AppState: ObservableObject {
     // MARK: - Agents
 
     func launchAgent(_ agent: AgentDefinition, in space: TrackedSpace) {
-        let branch = currentBranch(for: space)
-            ?? gitService.currentBranch(repo: URL(fileURLWithPath: space.destination))
+        let branch = space.supportsGitActions
+            ? currentBranch(for: space)
+                ?? gitService.currentBranch(repo: URL(fileURLWithPath: space.destination))
+            : nil
         sessionManager.launch(
             agent: agent, in: space, currentBranch: branch)
         pendingSelectSpace = space.name
