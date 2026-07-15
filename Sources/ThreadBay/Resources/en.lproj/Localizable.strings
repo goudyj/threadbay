@@ -169,6 +169,7 @@
 "error.uncommitted_changes" = "Commit or discard the current changes before merging.";
 "error.no_current_branch" = "The repository has no current branch.";
 "error.no_push_remote" = "No unambiguous Git remote is available for the push.";
+"error.no_remote" = "This repository has no Git remote.";
 "error.merge_same_branch" = "The current branch cannot be merged into itself.";
 "error.agent_working_git_action" = "Wait for the active agent turn to finish before running this Git action.";
 "error.changes_changed" = "The changed file list has changed. Reopen the commit dialog to review it.";

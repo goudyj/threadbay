@@ -169,6 +169,7 @@
 "error.uncommitted_changes" = "Commitez ou annulez les modifications avant la fusion.";
 "error.no_current_branch" = "Le dépôt n’a pas de branche courante.";
 "error.no_push_remote" = "Aucun remote Git non ambigu n’est disponible pour le push.";
+"error.no_remote" = "Ce dépôt n’a aucun remote Git.";
 "error.merge_same_branch" = "La branche courante ne peut pas être fusionnée avec elle-même.";
 "error.agent_working_git_action" = "Attendez la fin du tour actif de l’agent avant de lancer cette action Git.";
 "error.changes_changed" = "La liste des fichiers modifiés a changé. Rouvrez le dialogue de commit pour la vérifier.";

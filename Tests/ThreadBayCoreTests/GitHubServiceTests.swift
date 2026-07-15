@@ -17,4 +17,17 @@ final class GitHubServiceTests: XCTestCase {
         XCTAssertEqual(pullRequests.first?.title, "Add search")
         XCTAssertEqual(pullRequests.first?.headRefName, "feat/search")
     }
+
+    func testListingPullRequestsWithoutRemoteThrowsNoRemote() throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("threadbay-gh-\(UUID().uuidString)")
+        try Shell.shared.check("git", ["init", "-b", "main", repo.path])
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        XCTAssertThrowsError(try GitHubService().listOpenPullRequests(repo: repo)) { error in
+            guard case GitHubServiceError.noRemote = error else {
+                return XCTFail("Expected GitHubServiceError.noRemote, got \(error)")
+            }
+        }
+    }
 }

@@ -61,6 +61,12 @@ public struct GitService: Sendable {
                 branches.append(GitBranch(name: name, location: .remote(remote)))
             }
         }
+        // A freshly initialized repo has no refs yet, but HEAD already points
+        // at an unborn branch (usually "main"). Offer it so a space can still
+        // be created.
+        if branches.isEmpty, let unborn = currentBranch(repo: repo) {
+            branches.append(GitBranch(name: unborn, location: .local))
+        }
         return branches.sorted {
             $0.referenceName.localizedCaseInsensitiveCompare($1.referenceName) == .orderedAscending
         }

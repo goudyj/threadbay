@@ -220,9 +220,12 @@ public struct SpaceService: Sendable {
     private func checkoutLocalBranchBeforeRemoteSync(
         _ creation: SpaceCreation, in repo: URL
     ) throws {
-        if let localBranch = selectedLocalBranch(in: creation) {
-            try shell.check("git", ["checkout", localBranch.name], cwd: repo)
-        }
+        guard let localBranch = selectedLocalBranch(in: creation) else { return }
+        // A clone of a commit-less source has no refs to check out; its unborn
+        // HEAD already carries the default branch name.
+        guard try shell.run("git", ["rev-parse", "--verify", "-q", "HEAD"], cwd: repo).isSuccess
+        else { return }
+        try shell.check("git", ["checkout", localBranch.name], cwd: repo)
     }
 
     private func selectedLocalBranch(in creation: SpaceCreation) -> GitBranch? {

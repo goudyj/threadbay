@@ -169,6 +169,7 @@
 "error.uncommitted_changes" = "合并前请提交或丢弃当前更改。";
 "error.no_current_branch" = "仓库没有当前分支。";
 "error.no_push_remote" = "没有明确可用的 Git 远程仓库用于推送。";
+"error.no_remote" = "此仓库没有配置 Git 远程仓库。";
 "error.merge_same_branch" = "当前分支不能合并到自身。";
 "error.agent_working_git_action" = "请等待代理的当前任务结束后再执行此 Git 操作。";
 "error.changes_changed" = "已更改文件列表发生变化。请重新打开提交对话框进行检查。";

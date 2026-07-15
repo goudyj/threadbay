@@ -169,6 +169,7 @@
 "error.uncommitted_changes" = "Confirma o descarta los cambios actuales antes de fusionar.";
 "error.no_current_branch" = "El repositorio no tiene una rama actual.";
 "error.no_push_remote" = "No hay un remoto Git inequívoco disponible para subir.";
+"error.no_remote" = "Este repositorio no tiene ningún remoto Git.";
 "error.merge_same_branch" = "La rama actual no puede fusionarse consigo misma.";
 "error.agent_working_git_action" = "Espera a que termine el turno activo del agente antes de ejecutar esta acción Git.";
 "error.changes_changed" = "La lista de archivos modificados ha cambiado. Vuelve a abrir el diálogo de commit para revisarla.";

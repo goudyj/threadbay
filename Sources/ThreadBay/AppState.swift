@@ -651,6 +651,13 @@ final class AppState: ObservableObject {
             }
         }
 
+        if let error = error as? GitHubServiceError {
+            switch error {
+            case .noRemote:
+                return localized("error.no_remote")
+            }
+        }
+
         if let error = error as? GitActionError {
             switch error {
             case .emptyCommitMessage:

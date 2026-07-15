@@ -8,6 +8,10 @@ public struct PullRequestSummary: Decodable, Identifiable, Hashable, Sendable {
     public var id: UInt { number }
 }
 
+public enum GitHubServiceError: Error, Sendable {
+    case noRemote
+}
+
 /// Read-only GitHub queries used by the pull-request selector.
 public struct GitHubService: Sendable {
     private let shell: Shell
@@ -17,6 +21,11 @@ public struct GitHubService: Sendable {
     }
 
     public func listOpenPullRequests(repo: URL) throws -> [PullRequestSummary] {
+        // `gh` fails with a raw "no git remotes found" on remote-less repos;
+        // detect that case first so the UI can show a clear message.
+        guard try !shell.check("git", ["remote"], cwd: repo).isEmpty else {
+            throw GitHubServiceError.noRemote
+        }
         let output = try shell.check(
             "gh",
             [

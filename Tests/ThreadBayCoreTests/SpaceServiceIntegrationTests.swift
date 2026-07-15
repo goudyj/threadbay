@@ -203,6 +203,36 @@ final class SpaceServiceIntegrationTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: dest.appendingPathComponent("REMOTE.md").path))
     }
 
+    func testEmptyRepoListsUnbornBranchAndSupportsFeatureCreation() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("threadbay-empty-\(UUID().uuidString)")
+        let parent = root.appendingPathComponent("parent")
+        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = parent.appendingPathComponent("proj")
+        try git(["init", "-b", "main", source.path])
+        try git(["config", "user.email", "test@example.com"], in: source)
+        try git(["config", "user.name", "Test"], in: source)
+
+        // No commits yet: only the unborn HEAD branch is offered.
+        let listed = try GitService().listBranches(repo: source)
+        XCTAssertEqual(listed, [GitBranch(name: "main", location: .local)])
+
+        let project = Project(name: "proj", path: source.path)
+        let space = try SpaceService().create(
+            project: project,
+            creation: .feature(
+                branchName: "feat/first",
+                base: GitBranch(name: "main", location: .local)),
+            spacesURL: root.appendingPathComponent("spaces.yaml"))
+        let dest = URL(fileURLWithPath: space.destination)
+
+        XCTAssertEqual(try currentBranch(in: dest), "feat/first")
+        XCTAssertEqual(
+            GitService().baseBranch(repo: dest),
+            GitBranch(name: "main", location: .local))
+    }
+
     func testCreateSpaceFromPlainFolderCopiesFilesAndTracksIt() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("threadbay-folder-it-\(UUID().uuidString)")
