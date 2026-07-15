@@ -234,6 +234,65 @@ class SessionTerminalView: LocalProcessTerminalView {
         return nil
     }
 
+    /// With `allowMouseReporting` off, SwiftTerm turns the wheel into arrow
+    /// keys inside full-screen TUIs (Claude Code then complains "Scroll wheel
+    /// is sending arrow keys"). Forward wheel events as mouse reports when the
+    /// application asked for them — clicks stay local, so text selection keeps
+    /// working. Shift falls back to scrolling the local buffer. SwiftTerm's
+    /// `scrollWheel` is not open, so the wheel is intercepted with a local
+    /// event monitor instead of an override.
+    private var scrollMonitor: Any?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil {
+            if let scrollMonitor {
+                NSEvent.removeMonitor(scrollMonitor)
+                self.scrollMonitor = nil
+            }
+        } else if scrollMonitor == nil {
+            scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) {
+                [weak self] event in
+                guard let self, self.forwardScrollIfReported(event) else { return event }
+                return nil
+            }
+        }
+    }
+
+    /// Returns true when the event was consumed as a mouse report.
+    private func forwardScrollIfReported(_ event: NSEvent) -> Bool {
+        guard event.window === window, event.deltaY != 0,
+            !event.modifierFlags.contains(.shift)
+        else { return false }
+        let terminal = getTerminal()
+        guard terminal.mouseMode != .off else { return false }
+        let point = convert(event.locationInWindow, from: nil)
+        guard bounds.contains(point) else { return false }
+        let col = max(0, min(terminal.cols - 1,
+            Int(point.x / bounds.width * CGFloat(terminal.cols))))
+        let row = max(0, min(terminal.rows - 1,
+            Int((bounds.height - point.y) / bounds.height * CGFloat(terminal.rows))))
+        let flags = terminal.encodeButton(
+            button: event.deltaY > 0 ? 4 : 5,
+            release: false,
+            shift: false,
+            meta: event.modifierFlags.contains(.option),
+            control: event.modifierFlags.contains(.control))
+        for _ in 0..<Self.scrollLines(for: event.deltaY) {
+            terminal.sendEvent(buttonFlags: flags, x: col, y: row)
+        }
+        return true
+    }
+
+    /// Same velocity curve as SwiftTerm's own mouse-reporting branch.
+    private static func scrollLines(for deltaY: CGFloat) -> Int {
+        let delta = Int(abs(deltaY))
+        if delta > 9 { return 20 }
+        if delta > 5 { return 10 }
+        if delta > 1 { return 3 }
+        return 1
+    }
+
     /// SwiftTerm's copy replaces the clipboard even when the selection is
     /// empty; keep the previous clipboard instead.
     override func copy(_ sender: Any) {
