@@ -50,6 +50,16 @@ struct TerminalPane: View {
         .onChange(of: activeState) { _, _ in acknowledgeIfVisible() }
     }
 
+    /// A running agent goes through the Cmd+W confirmation dialog; a finished
+    /// one closes immediately.
+    private func requestClose(_ session: AgentSession) {
+        if session.state.isActive {
+            app.pendingCloseSessionID = session.id
+        } else {
+            manager.close(session)
+        }
+    }
+
     private func acknowledgeIfVisible() {
         guard activeState != .inactive, let session = current else { return }
         manager.acknowledge(session)
@@ -76,7 +86,8 @@ struct TerminalPane: View {
                         SessionTab(
                             session: session,
                             isSelected: session.id == current?.id,
-                            select: { manager.select(session.id) })
+                            select: { manager.select(session.id) },
+                            close: { requestClose(session) })
                     }
                 }
             }
@@ -100,12 +111,13 @@ struct TerminalPane: View {
     }
 }
 
-/// One session "tab": status dot and agent name.
+/// One session "tab": status dot, agent name and close button.
 private struct SessionTab: View {
     @EnvironmentObject var app: AppState
     @ObservedObject var session: AgentSession
     let isSelected: Bool
     let select: () -> Void
+    let close: () -> Void
 
     var body: some View {
         HStack(spacing: 5) {
@@ -114,6 +126,13 @@ private struct SessionTab: View {
                 .frame(width: 7, height: 7)
             Text(session.agent.name)
                 .lineLimit(1)
+            Button(action: close) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help(app.localized("terminal.close_tab"))
         }
         .font(.callout)
         .padding(.horizontal, 8)

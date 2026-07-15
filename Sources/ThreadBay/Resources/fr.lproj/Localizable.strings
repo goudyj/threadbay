@@ -141,6 +141,7 @@
 "terminal.close_named_title" = "Fermer l’onglet « %@ » ?";
 "terminal.close_message" = "Le processus en cours dans cet onglet sera arrêté.";
 "terminal.close_confirm" = "Fermer l’onglet";
+"terminal.close_tab" = "Fermer cet onglet";
 "terminal.starting" = "Démarrage…";
 "terminal.needs_input" = "A besoin de vous";
 "terminal.turn_completed" = "Tour terminé";

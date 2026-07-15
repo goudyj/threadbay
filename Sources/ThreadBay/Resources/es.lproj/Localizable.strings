@@ -141,6 +141,7 @@
 "terminal.close_named_title" = "¿Cerrar la pestaña «%@»?";
 "terminal.close_message" = "El proceso de esta pestaña se detendrá.";
 "terminal.close_confirm" = "Cerrar pestaña";
+"terminal.close_tab" = "Cerrar esta pestaña";
 "terminal.starting" = "Iniciando…";
 "terminal.needs_input" = "Necesita tu intervención";
 "terminal.turn_completed" = "Turno completado";

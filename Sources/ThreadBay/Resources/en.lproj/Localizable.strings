@@ -141,6 +141,7 @@
 "terminal.close_named_title" = "Close the “%@” tab?";
 "terminal.close_message" = "The process running in this tab will be stopped.";
 "terminal.close_confirm" = "Close Tab";
+"terminal.close_tab" = "Close this tab";
 "terminal.starting" = "Starting…";
 "terminal.needs_input" = "Needs your input";
 "terminal.turn_completed" = "Turn completed";

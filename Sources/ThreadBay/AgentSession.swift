@@ -94,6 +94,11 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
         super.init()
         terminalView.processDelegate = self
         terminalView.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        // While mouse reporting is enabled SwiftTerm drops the local selection
+        // on every output chunk, so nothing could ever be copied from a
+        // streaming agent. Text selection matters more here than forwarding
+        // mouse events to TUIs.
+        terminalView.allowMouseReporting = false
         applyTheme(theme)
     }
 
@@ -141,9 +146,11 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
 
     // MARK: - Launch command
 
-    /// A login shell resolves `claude`/`codex` exactly like a real terminal
-    /// (no PATH guessing); `exec` keeps the agent as the PTY's direct child so
-    /// signals and exit codes are its own. Empty command = interactive shell.
+    /// An interactive login shell resolves `claude`/`codex` exactly like a
+    /// real terminal — PATH additions commonly live in `~/.zshrc`, which only
+    /// interactive shells read; `exec` keeps the agent as the PTY's direct
+    /// child so signals and exit codes are its own. Empty command =
+    /// interactive shell.
     private var launchArgs: [String] {
         var command = CommandTemplate.render(
             agent.command, space: space, currentBranch: currentBranch)
@@ -155,7 +162,7 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
                 notifierPath: notifierPath)
             command += " -c \(override.shellQuoted)"
         }
-        return ["-lc", "exec \(command)"]
+        return ["-ilc", "exec \(command)"]
     }
 
     func applyTheme(_ theme: TerminalTheme) {
@@ -225,6 +232,13 @@ class SessionTerminalView: LocalProcessTerminalView {
             return [0x15] // Ctrl+U: delete to start of line
         }
         return nil
+    }
+
+    /// SwiftTerm's copy replaces the clipboard even when the selection is
+    /// empty; keep the previous clipboard instead.
+    override func copy(_ sender: Any) {
+        guard selectionActive else { return }
+        super.copy(sender)
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {

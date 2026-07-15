@@ -141,6 +141,7 @@
 "terminal.close_named_title" = "关闭“%@”标签页？";
 "terminal.close_message" = "此标签页中正在运行的进程将会停止。";
 "terminal.close_confirm" = "关闭标签页";
+"terminal.close_tab" = "关闭此标签页";
 "terminal.starting" = "正在启动…";
 "terminal.needs_input" = "需要你的输入";
 "terminal.turn_completed" = "任务轮次已完成";
