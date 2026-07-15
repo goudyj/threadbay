@@ -55,7 +55,7 @@ final class YamlInteropTests: XCTestCase {
         XCTAssertEqual(space.projectName, "threadbay")
         XCTAssertEqual(space.name, "threadbay__feature-x")
         XCTAssertNil(space.displayName)
-        XCTAssertEqual(space.displayTitle, "feature-x")
+        XCTAssertEqual(space.displayTitle, "feat/x")
         XCTAssertEqual(space.taskType, "feature")
         XCTAssertEqual(space.taskValue, "feat/x")
     }

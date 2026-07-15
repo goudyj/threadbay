@@ -175,3 +175,24 @@
 "error.event_socket_creation" = "No se pudo crear el socket de eventos.";
 "error.event_socket_path" = "La ruta del socket de eventos es demasiado larga: %@";
 "error.event_socket_bind" = "No se pudo enlazar el socket de eventos: %@";
+
+"new_space.kind" = "Tipo";
+"new_space.kind.project" = "Proyecto";
+"new_space.kind.terminal" = "Terminal";
+"new_space.terminal_help" = "Abre un terminal en tu carpeta personal. No se crea ninguna carpeta ni clon.";
+"main.success" = "Éxito";
+"main.terminal_space" = "Terminal";
+"main.delete_terminal" = "El espacio se eliminará de ThreadBay. No se borrará ninguna carpeta; los agentes activos se detendrán.";
+"git.after_commit.force_push" = "Enviar la rama actual (force with lease)";
+"git.push" = "Enviar la rama";
+"git.push_force" = "Enviar (force with lease)";
+"git.success.commit" = "Commit creado en la rama «%@».";
+"git.success.push" = "Commit creado y enviado en «%@».";
+"git.success.force_push" = "Commit creado y enviado (force with lease) en «%@».";
+"git.success.merge" = "Commit creado y fusionado en «%1$@». Sigues en la rama «%2$@».";
+"git.success.merge_push" = "Commit creado, fusionado en «%1$@» y la rama de destino fue enviada. Sigues en la rama «%2$@».";
+"git.success.pushed" = "Rama «%@» enviada.";
+"git.success.pushed_force" = "Rama «%@» enviada (force with lease).";
+"terminal.rename_tab" = "Renombrar pestaña";
+"terminal.rename_title" = "Renombrar la pestaña «%@»";
+"terminal.tab_name" = "Nombre de la pestaña";

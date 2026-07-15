@@ -175,3 +175,24 @@
 "error.event_socket_creation" = "Event socket creation failed.";
 "error.event_socket_path" = "The event socket path is too long: %@";
 "error.event_socket_bind" = "Unable to bind the event socket: %@";
+
+"new_space.kind" = "Type";
+"new_space.kind.project" = "Project";
+"new_space.kind.terminal" = "Terminal";
+"new_space.terminal_help" = "Opens a terminal in your home folder. No folder or clone is created.";
+"main.success" = "Success";
+"main.terminal_space" = "Terminal";
+"main.delete_terminal" = "The space will be removed from ThreadBay. No folder will be deleted; active agents will be stopped.";
+"git.after_commit.force_push" = "Push the current branch (force with lease)";
+"git.push" = "Push branch";
+"git.push_force" = "Push (force with lease)";
+"git.success.commit" = "Commit created on branch “%@”.";
+"git.success.push" = "Commit created and pushed on “%@”.";
+"git.success.force_push" = "Commit created and pushed (force with lease) on “%@”.";
+"git.success.merge" = "Commit created and merged into “%1$@”. You are still on branch “%2$@”.";
+"git.success.merge_push" = "Commit created, merged into “%1$@”, and the target branch was pushed. You are still on branch “%2$@”.";
+"git.success.pushed" = "Branch “%@” pushed.";
+"git.success.pushed_force" = "Branch “%@” pushed (force with lease).";
+"terminal.rename_tab" = "Rename tab";
+"terminal.rename_title" = "Rename the “%@” tab";
+"terminal.tab_name" = "Tab name";

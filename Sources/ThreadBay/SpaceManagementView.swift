@@ -81,7 +81,7 @@ struct SpaceManagementView: View {
             }
             Button(app.localized("common.cancel"), role: .cancel) { spaceToDelete = nil }
         } message: {
-            Text(app.localized("main.delete_folder", spaceToDelete?.destination ?? ""))
+            Text(spaceToDelete.map { app.deleteConfirmationMessage(for: $0) } ?? "")
         }
     }
 

@@ -89,11 +89,39 @@ public struct SpaceService: Sendable {
         return space
     }
 
-    /// Removes the space directory (if present) and its tracking entry.
+    /// Tracks a plain terminal space in the user's home directory. Nothing is
+    /// copied or cloned; deleting it later only removes the tracking entry.
+    @discardableResult
+    public func createTerminal(
+        displayName: String? = nil,
+        home: URL = FileManager.default.homeDirectoryForCurrentUser,
+        spacesURL: URL = Paths.spacesFile
+    ) throws -> TrackedSpace {
+        var store = try SpaceStore.load(url: spacesURL)
+        let name = Naming.ensureUniqueName(
+            base: Naming.randomSpaceName(project: "terminal")
+        ) { store.space(named: $0) != nil }
+
+        let space = TrackedSpace(
+            projectName: "Terminal",
+            destination: home.path,
+            name: name,
+            displayName: normalizedDisplayName(displayName),
+            createdAt: Self.timestamp(),
+            taskType: "terminal",
+            taskValue: "terminal")
+        try store.add(space)
+        return space
+    }
+
+    /// Removes the space directory (if present) and its tracking entry. A
+    /// terminal space points at the home folder, so only its entry is removed.
     public func delete(_ space: TrackedSpace, spacesURL: URL = Paths.spacesFile) throws {
-        let dest = URL(fileURLWithPath: space.destination)
-        if FileManager.default.fileExists(atPath: dest.path) {
-            try FileManager.default.removeItem(at: dest)
+        if !space.isTerminal {
+            let dest = URL(fileURLWithPath: space.destination)
+            if FileManager.default.fileExists(atPath: dest.path) {
+                try FileManager.default.removeItem(at: dest)
+            }
         }
         var store = try SpaceStore.load(url: spacesURL)
         try store.remove(named: space.name)
@@ -142,9 +170,9 @@ public struct SpaceService: Sendable {
         case .feature(let branchName, _):
             return ("feature", branchName)
         case .existingBranch(let branch):
-            return ("review", "branch-\(branch.name)")
+            return ("review", TrackedSpace.reviewBranchPrefix + branch.name)
         case .pullRequest(let number):
-            return ("review", "pr-\(number)")
+            return ("review", TrackedSpace.reviewPullRequestPrefix + String(number))
         case .folder(let name):
             return ("folder", name)
         }

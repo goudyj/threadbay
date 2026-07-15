@@ -10,6 +10,7 @@ struct CommitView: View {
     private enum PostAction: String, CaseIterable, Identifiable {
         case commit
         case push
+        case forcePush
         case merge
         case mergeAndPush
 
@@ -29,6 +30,7 @@ struct CommitView: View {
     @State private var postAction = PostAction.commit
     @State private var loading = true
     @State private var generating = false
+    @State private var errorText: String?
 
     private var selectedTarget: GitBranch? {
         mergeTargets.first { $0.id == targetID }
@@ -111,6 +113,10 @@ struct CommitView: View {
                 }
             }
 
+            if let errorText {
+                ErrorBanner(text: errorText)
+            }
+
             HStack {
                 Spacer()
                 Button(app.localized("common.cancel")) { dismiss() }
@@ -140,6 +146,7 @@ struct CommitView: View {
         switch action {
         case .commit: return app.localized("git.after_commit.none")
         case .push: return app.localized("git.after_commit.push")
+        case .forcePush: return app.localized("git.after_commit.force_push")
         case .merge: return app.localized("git.after_commit.merge")
         case .mergeAndPush: return app.localized("git.after_commit.merge_push")
         }
@@ -150,6 +157,7 @@ struct CommitView: View {
         async let loadedBranches = app.listBranches(space: space)
         files = await loadedFiles ?? []
         branches = await loadedBranches ?? []
+        errorText = app.consumeErrorMessage()
         let base = app.gitState(for: space)?.baseBranch
         targetID = mergeTargets.first(where: { $0 == base })?.id
             ?? mergeTargets.first(where: { $0.name == base?.name })?.id
@@ -167,18 +175,33 @@ struct CommitView: View {
         defer { generating = false }
         if let generated = await app.generateCommitMessage(with: provider, in: space) {
             message = generated
+        } else {
+            errorText = app.consumeErrorMessage()
+        }
+    }
+
+    private var followUp: CommitFollowUp {
+        switch postAction {
+        case .commit: return .none
+        case .push: return .push(forceWithLease: false)
+        case .forcePush: return .push(forceWithLease: true)
+        case .merge, .mergeAndPush:
+            guard let target = selectedTarget else { return .none }
+            return .merge(into: target, push: postAction == .mergeAndPush)
         }
     }
 
     private func commit() async {
-        let target = needsMergeTarget ? selectedTarget : nil
+        errorText = nil
         let success = await app.commit(
             in: space,
             message: message,
             expectedFiles: files,
-            push: postAction == .push,
-            mergeInto: target,
-            pushMerge: postAction == .mergeAndPush)
-        if success { dismiss() }
+            followUp: followUp)
+        if success {
+            dismiss()
+        } else {
+            errorText = app.consumeErrorMessage()
+        }
     }
 }

@@ -54,14 +54,21 @@ public enum Naming {
         return "\(projectSlug.isEmpty ? "project" : projectSlug)__\(adjective)-\(animal)"
     }
 
-    /// Appends `-2`, `-3`, … until the name is free inside `parent`.
-    public static func ensureUniqueName(parent: URL, base: String) -> String {
+    /// Appends `-2`, `-3`, … until `isTaken` clears the candidate.
+    public static func ensureUniqueName(base: String, isTaken: (String) -> Bool) -> String {
         var i = 1
         var name = base
-        while FileManager.default.fileExists(atPath: parent.appendingPathComponent(name).path) {
+        while isTaken(name) {
             i += 1
             name = "\(base)-\(i)"
         }
         return name
+    }
+
+    /// Appends `-2`, `-3`, … until the name is free inside `parent`.
+    public static func ensureUniqueName(parent: URL, base: String) -> String {
+        ensureUniqueName(base: base) {
+            FileManager.default.fileExists(atPath: parent.appendingPathComponent($0).path)
+        }
     }
 }

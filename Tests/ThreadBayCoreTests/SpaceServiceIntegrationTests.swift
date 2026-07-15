@@ -61,6 +61,32 @@ final class SpaceServiceIntegrationTests: XCTestCase {
         XCTAssertTrue(store.spaces.isEmpty)
     }
 
+    func testCreateTerminalSpaceOnlyTracksAndNeverDeletesItsDirectory() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("threadbay-terminal-\(UUID().uuidString)")
+        let home = root.appendingPathComponent("home")
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let spacesURL = root.appendingPathComponent("spaces.yaml")
+
+        let space = try SpaceService().createTerminal(home: home, spacesURL: spacesURL)
+
+        XCTAssertEqual(space.taskType, "terminal")
+        XCTAssertEqual(space.projectName, "Terminal")
+        XCTAssertEqual(space.destination, home.path)
+        XCTAssertTrue(space.isTerminal)
+        XCTAssertFalse(space.supportsGitActions)
+        XCTAssertEqual(try SpaceStore.load(url: spacesURL).spaces.map(\.name), [space.name])
+
+        // A second space gets a distinct name even though no folder exists.
+        let second = try SpaceService().createTerminal(home: home, spacesURL: spacesURL)
+        XCTAssertNotEqual(second.name, space.name)
+
+        try SpaceService().delete(space, spacesURL: spacesURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: home.path))
+        XCTAssertEqual(try SpaceStore.load(url: spacesURL).spaces.map(\.name), [second.name])
+    }
+
     func testCreateFromLocalOnlyBranchPreservesUnpushedCommit() throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.root) }

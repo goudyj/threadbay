@@ -21,9 +21,18 @@ struct NewSpaceView: View {
         }
     }
 
+    private enum SpaceKind: CaseIterable, Identifiable {
+        case project
+        case terminal
+
+        var id: Self { self }
+    }
+
     @EnvironmentObject var app: AppState
     @Environment(\.dismiss) private var dismiss
 
+    @State private var kind: SpaceKind = .project
+    @State private var errorText: String?
     @State private var projectName = ""
     @State private var mode: CreationMode = .feature
     @State private var branchName = ""
@@ -68,7 +77,9 @@ struct NewSpaceView: View {
     }
 
     private var canCreate: Bool {
-        guard selectedProject != nil, !app.isBusy else { return false }
+        guard !app.isBusy else { return false }
+        if kind == .terminal { return true }
+        guard selectedProject != nil else { return false }
         switch mode {
         case .feature:
             return !branchName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -86,23 +97,39 @@ struct NewSpaceView: View {
         VStack(alignment: .leading, spacing: 20) {
             Text(app.localized("new_space.title")).font(.title2).bold()
 
-            if app.settings.projects.isEmpty {
-                Text(app.localized("new_space.no_projects"))
-                    .foregroundStyle(.secondary)
-            } else {
-                VStack(spacing: 14) {
+            VStack(spacing: 14) {
+                fieldRow(app.localized("new_space.kind")) {
+                    Picker("", selection: $kind) {
+                        Text(app.localized("new_space.kind.project")).tag(SpaceKind.project)
+                        Text(app.localized("new_space.kind.terminal")).tag(SpaceKind.terminal)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                }
+
+                fieldRow(app.localized("new_space.display_name")) {
+                    TextField(
+                        "", text: $displayName,
+                        prompt: Text(app.localized("new_space.display_name_placeholder")))
+                        .labelsHidden()
+                }
+
+                if kind == .terminal {
+                    fieldRow(app.localized("new_space.source")) {
+                        Label(
+                            app.localized("new_space.terminal_help"),
+                            systemImage: "terminal")
+                            .foregroundStyle(.secondary)
+                    }
+                } else if app.settings.projects.isEmpty {
+                    Text(app.localized("new_space.no_projects"))
+                        .foregroundStyle(.secondary)
+                } else {
                     fieldRow(app.localized("new_space.project")) {
                         Picker("", selection: $projectName) {
                             ForEach(app.settings.projects) { Text($0.name).tag($0.name) }
                         }
                         .labelsHidden()
-                    }
-
-                    fieldRow(app.localized("new_space.display_name")) {
-                        TextField(
-                            "", text: $displayName,
-                            prompt: Text(app.localized("new_space.display_name_placeholder")))
-                            .labelsHidden()
                     }
 
                     if isGitProject == true {
@@ -126,6 +153,10 @@ struct NewSpaceView: View {
 
                     modeFields
                 }
+            }
+
+            if let errorText {
+                ErrorBanner(text: errorText)
             }
 
             HStack {
@@ -471,6 +502,9 @@ struct NewSpaceView: View {
         } else {
             listed = await app.listBranches(project: project)
         }
+        if listed == nil {
+            errorText = app.consumeErrorMessage()
+        }
         let current = await app.currentBranch(project: project)
         guard project.name == projectName, let listed else { return }
 
@@ -499,6 +533,9 @@ struct NewSpaceView: View {
             pullRequests.first { $0.number == number }
         }
         let listed = await app.listPullRequests(project: project)
+        if listed == nil {
+            errorText = app.consumeErrorMessage()
+        }
         guard project.name == projectName, let listed else { return }
 
         pullRequests = listed
@@ -534,6 +571,15 @@ struct NewSpaceView: View {
     }
 
     private func create() async {
+        errorText = nil
+        if kind == .terminal {
+            if await app.createTerminalSpace(displayName: displayName) {
+                dismiss()
+            } else {
+                errorText = app.consumeErrorMessage()
+            }
+            return
+        }
         guard let project = selectedProject else { return }
 
         let creation: SpaceCreation
@@ -555,6 +601,8 @@ struct NewSpaceView: View {
             project: project, creation: creation, displayName: displayName)
         {
             dismiss()
+        } else {
+            errorText = app.consumeErrorMessage()
         }
     }
 }

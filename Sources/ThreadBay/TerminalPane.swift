@@ -15,6 +15,8 @@ struct TerminalPane: View {
     @Environment(\.controlActiveState) private var activeState
     @State private var launchMenuRequest = 0
     @State private var launchMenuLocation = NSPoint.zero
+    @State private var renameSession: AgentSession?
+    @State private var renameText = ""
 
     private var sessions: [AgentSession] {
         manager.sessions(for: space)
@@ -48,6 +50,23 @@ struct TerminalPane: View {
         .onChange(of: current?.id) { _, _ in acknowledgeIfVisible() }
         .onChange(of: current?.attention) { _, _ in acknowledgeIfVisible() }
         .onChange(of: activeState) { _, _ in acknowledgeIfVisible() }
+        .alert(
+            app.localized("terminal.rename_title", renameSession?.displayName ?? ""),
+            isPresented: renamePresented
+        ) {
+            TextField(app.localized("terminal.tab_name"), text: $renameText)
+            Button(app.localized("common.cancel"), role: .cancel) { renameSession = nil }
+            Button(app.localized("management.rename")) {
+                renameSession?.customName = renameText
+                renameSession = nil
+            }
+        }
+    }
+
+    private var renamePresented: Binding<Bool> {
+        Binding(
+            get: { renameSession != nil },
+            set: { if !$0 { renameSession = nil } })
     }
 
     /// A running agent goes through the Cmd+W confirmation dialog; a finished
@@ -87,7 +106,11 @@ struct TerminalPane: View {
                             session: session,
                             isSelected: session.id == current?.id,
                             select: { manager.select(session.id) },
-                            close: { requestClose(session) })
+                            close: { requestClose(session) },
+                            rename: {
+                                renameText = session.displayName
+                                renameSession = session
+                            })
                     }
                 }
             }
@@ -111,20 +134,21 @@ struct TerminalPane: View {
     }
 }
 
-/// One session "tab": status dot, agent name and close button.
+/// One session "tab": status dot, session name and close button.
 private struct SessionTab: View {
     @EnvironmentObject var app: AppState
     @ObservedObject var session: AgentSession
     let isSelected: Bool
     let select: () -> Void
     let close: () -> Void
+    let rename: () -> Void
 
     var body: some View {
         HStack(spacing: 5) {
             Circle()
                 .fill(session.statusColor)
                 .frame(width: 7, height: 7)
-            Text(session.agent.name)
+            Text(session.displayName)
                 .lineLimit(1)
             Button(action: close) {
                 Image(systemName: "xmark")
@@ -142,6 +166,13 @@ private struct SessionTab: View {
                 .fill(isSelected ? Color.accentColor.opacity(0.22) : Color.clear))
         .contentShape(Rectangle())
         .onTapGesture(perform: select)
+        .contextMenu {
+            Button {
+                rename()
+            } label: {
+                Label(app.localized("terminal.rename_tab"), systemImage: "pencil")
+            }
+        }
         .help(session.stateDescription(language: app.appLanguage))
     }
 }

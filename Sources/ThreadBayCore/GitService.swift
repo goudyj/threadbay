@@ -169,15 +169,16 @@ public struct GitService: Sendable {
         try shell.check("git", ["commit", "-m", message], cwd: repo)
     }
 
-    public func pushCurrentBranch(repo: URL) throws {
+    public func pushCurrentBranch(forceWithLease: Bool = false, repo: URL) throws {
         guard let branch = currentBranch(repo: repo) else {
             throw GitActionError.noCurrentBranch
         }
+        let force = forceWithLease ? ["--force-with-lease"] : []
         if try upstreamRemote(for: branch, repo: repo) != nil {
-            try shell.check("git", ["push"], cwd: repo)
+            try shell.check("git", ["push"] + force, cwd: repo)
         } else {
             let remote = try defaultRemote(repo: repo)
-            try shell.check("git", ["push", "-u", remote, branch], cwd: repo)
+            try shell.check("git", ["push", "-u"] + force + [remote, branch], cwd: repo)
         }
     }
 
