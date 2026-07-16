@@ -19,10 +19,6 @@ final class SessionManager: ObservableObject {
     private var terminalTheme: TerminalTheme = .system
     private var language: AppLanguage = .system
 
-    var selected: AgentSession? {
-        sessions.first { $0.id == selectedID }
-    }
-
     func sessions(for space: TrackedSpace) -> [AgentSession] {
         sessions.filter { $0.space.name == space.name }
     }

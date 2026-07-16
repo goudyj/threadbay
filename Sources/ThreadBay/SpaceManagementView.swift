@@ -41,22 +41,10 @@ struct SpaceManagementView: View {
         .frame(width: 680, height: 520)
         .task { await setupBranches() }
         .onChange(of: projectName) { _, _ in Task { await loadBranches() } }
-        .alert(
-            app.localized("management.rename_title", renameSpace?.displayTitle ?? ""),
-            isPresented: renamePresented
-        ) {
-            TextField(app.localized("management.display_name"), text: $renameText)
-            Button(app.localized("common.cancel"), role: .cancel) { renameSpace = nil }
-            Button(app.localized("management.rename")) {
-                if let space = renameSpace { app.rename(space, displayName: renameText) }
-                renameSpace = nil
-            }
-        } message: {
-            Text(app.localized("management.rename_help"))
-        }
+        .renameSpaceAlert(space: $renameSpace, text: $renameText)
         .confirmationDialog(
             app.localized("management.delete_branch_title", branchToDelete?.name ?? ""),
-            isPresented: branchDeletionPresented,
+            isPresented: Binding(presence: $branchToDelete),
             titleVisibility: .visible
         ) {
             Button(app.localized("common.delete"), role: .destructive) {
@@ -70,19 +58,7 @@ struct SpaceManagementView: View {
         } message: {
             Text(app.localized("management.delete_branch_help"))
         }
-        .confirmationDialog(
-            app.localized("main.delete_title", spaceToDelete?.displayTitle ?? ""),
-            isPresented: spaceDeletionPresented,
-            titleVisibility: .visible
-        ) {
-            Button(app.localized("common.delete"), role: .destructive) {
-                if let space = spaceToDelete { app.delete(space) }
-                spaceToDelete = nil
-            }
-            Button(app.localized("common.cancel"), role: .cancel) { spaceToDelete = nil }
-        } message: {
-            Text(spaceToDelete.map { app.deleteConfirmationMessage(for: $0) } ?? "")
-        }
+        .confirmDeleteSpace($spaceToDelete)
     }
 
     private var spacesList: some View {
@@ -147,13 +123,10 @@ struct SpaceManagementView: View {
                 List {
                     branchSection(
                         app.localized("new_space.local_branches"),
-                        branches.filter { $0.location == .local })
+                        branches.filter(\.isLocal))
                     branchSection(
                         app.localized("new_space.remote_branches"),
-                        branches.filter {
-                            if case .remote = $0.location { return true }
-                            return false
-                        })
+                        branches.filter(\.isRemote))
                 }
             }
         }
@@ -184,24 +157,6 @@ struct SpaceManagementView: View {
         }
     }
 
-    private var renamePresented: Binding<Bool> {
-        Binding(
-            get: { renameSpace != nil },
-            set: { if !$0 { renameSpace = nil } })
-    }
-
-    private var branchDeletionPresented: Binding<Bool> {
-        Binding(
-            get: { branchToDelete != nil },
-            set: { if !$0 { branchToDelete = nil } })
-    }
-
-    private var spaceDeletionPresented: Binding<Bool> {
-        Binding(
-            get: { spaceToDelete != nil },
-            set: { if !$0 { spaceToDelete = nil } })
-    }
-
     private func setupBranches() async {
         projectName = app.settings.defaultProject ?? app.settings.projects.first?.name ?? ""
         await loadBranches()
@@ -223,13 +178,13 @@ struct SpaceManagementView: View {
             currentBranch = nil
             return
         }
+        async let currentTask = app.currentBranch(project: project)
         let listed = refresh
             ? await app.refreshBranches(project: project)
             : await app.listBranches(project: project)
+        let current = await currentTask
         guard project.name == projectName else { return }
         branches = listed ?? []
-        let current = await app.currentBranch(project: project)
-        guard project.name == projectName else { return }
         currentBranch = current
     }
 }

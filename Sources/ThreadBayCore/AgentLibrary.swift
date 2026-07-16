@@ -4,7 +4,7 @@ import Yams
 /// An agent the app can launch inside an embedded terminal, tied to a space.
 public struct AgentDefinition: Codable, Identifiable, Hashable, Sendable {
     /// Drives agent-specific behaviour at launch (hook / notify injection).
-    public enum Kind: String, Codable, Sendable, CaseIterable {
+    public enum Kind: String, Codable, Sendable {
         case claude
         case codex
         case shell

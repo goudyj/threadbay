@@ -1,26 +1,10 @@
 import Foundation
 
-public enum SpaceServiceError: Error, LocalizedError {
+public enum SpaceServiceError: Error {
     case emptyBranchName
     case emptyBaseBranch
     case emptySpaceName
     case invalidPullRequest
-    case destinationExists(String)
-
-    public var errorDescription: String? {
-        switch self {
-        case .emptyBranchName:
-            return "Le nom de la branche est vide."
-        case .emptyBaseBranch:
-            return "La branche de base est vide."
-        case .emptySpaceName:
-            return "Le nom de l’espace est vide."
-        case .invalidPullRequest:
-            return "Le numéro de pull request doit être supérieur à zéro."
-        case .destinationExists(let path):
-            return "La destination existe déjà : \(path)"
-        }
-    }
 }
 
 /// Creates and deletes spaces. Ported from the CLI's `space create` in
@@ -207,8 +191,7 @@ public struct SpaceService: Sendable {
             !name.isEmpty
         else { return nil }
 
-        let remotes = (try? shell.check("git", ["remote"], cwd: repo))?
-            .split(separator: "\n").map(String.init) ?? []
+        let remotes = (try? GitService(shell: shell).listRemotes(repo: repo)) ?? []
         if remotes.contains("origin") {
             return GitBranch(name: name, location: .remote("origin"))
         }
@@ -244,17 +227,7 @@ public struct SpaceService: Sendable {
     /// selected local branch's actual remote upstream before cloning it.
     private func remoteUpstream(for creation: SpaceCreation, in repo: URL) throws -> String? {
         guard let branch = selectedLocalBranch(in: creation) else { return nil }
-        let output = try shell.check(
-            "git",
-            [
-                "for-each-ref",
-                "--format=%(upstream:remotename)%09%(upstream:short)",
-                "refs/heads/\(branch.name)",
-            ],
-            cwd: repo)
-        let fields = output.split(whereSeparator: \Character.isWhitespace)
-        guard fields.count == 2, fields[0] != "." else { return nil }
-        return String(fields[1])
+        return try GitService(shell: shell).upstream(for: branch.name, repo: repo)?.shortRef
     }
 
     private func apply(
@@ -290,9 +263,10 @@ public struct SpaceService: Sendable {
     }
 
     private func syncRemotes(source: URL, dest: URL) throws {
-        let sourceRemotes = try listRemotes(source)
+        let git = GitService(shell: shell)
+        let sourceRemotes = try git.listRemotes(repo: source)
         guard !sourceRemotes.isEmpty else { return }
-        let destRemotes = Set(try listRemotes(dest))
+        let destRemotes = Set(try git.listRemotes(repo: dest))
 
         for name in sourceRemotes {
             let url = try shell.check("git", ["remote", "get-url", name], cwd: source)
@@ -308,13 +282,6 @@ public struct SpaceService: Sendable {
                 try shell.check("git", ["remote", "set-url", "--push", name, pushURL], cwd: dest)
             }
         }
-    }
-
-    private func listRemotes(_ repo: URL) throws -> [String] {
-        try shell.check("git", ["remote"], cwd: repo)
-            .split(separator: "\n")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
     }
 
     private func copyFiles(_ files: [String], into dest: URL) throws {

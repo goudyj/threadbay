@@ -128,10 +128,7 @@ public struct GitService: Sendable {
             case .local:
                 try shell.check("git", ["switch", "--", branch.name], cwd: repo)
             case .remote(let remote):
-                let localRef = "refs/heads/\(branch.name)"
-                let localExists = try shell.run(
-                    "git", ["show-ref", "--verify", "--quiet", localRef], cwd: repo).isSuccess
-                if localExists {
+                if try localBranchExists(branch.name, repo: repo) {
                     try shell.check("git", ["switch", "--", branch.name], cwd: repo)
                 } else {
                     try shell.check(
@@ -211,10 +208,7 @@ public struct GitService: Sendable {
             remote = try upstreamRemote(for: target.name, repo: repo)
         case .remote(let name):
             remote = name
-            let localExists = try shell.run(
-                "git", ["show-ref", "--verify", "--quiet", "refs/heads/\(target.name)"],
-                cwd: repo).isSuccess
-            if !localExists {
+            if try !localBranchExists(target.name, repo: repo) {
                 try shell.check(
                     "git", ["branch", target.name, "\(name)/\(target.name)"], cwd: repo)
             }
@@ -252,25 +246,45 @@ public struct GitService: Sendable {
         try shell.check("git", ["branch", "-d", "--", name], cwd: repo)
     }
 
-    private func upstreamRemote(for branch: String, repo: URL) throws -> String? {
-        let value = try shell.check(
+    /// The branch's remote upstream, or nil when it has none. A "." remote
+    /// marks a locally-tracking branch, which counts as no remote upstream.
+    func upstream(for branch: String, repo: URL) throws -> (remote: String, shortRef: String)? {
+        let output = try shell.check(
             "git",
             [
-                "for-each-ref", "--format=%(upstream:remotename)",
+                "for-each-ref", "--format=%(upstream:remotename)%09%(upstream:short)",
                 "refs/heads/\(branch)",
             ],
             cwd: repo)
-        return value.isEmpty || value == "." ? nil : value
+        let fields = output.split(whereSeparator: \Character.isWhitespace)
+        guard fields.count == 2, fields[0] != "." else { return nil }
+        return (String(fields[0]), String(fields[1]))
+    }
+
+    public func listRemotes(repo: URL) throws -> [String] {
+        try shell.check("git", ["remote"], cwd: repo)
+            .split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func upstreamRemote(for branch: String, repo: URL) throws -> String? {
+        try upstream(for: branch, repo: repo)?.remote
     }
 
     private func defaultRemote(repo: URL) throws -> String {
-        let remotes = try shell.check("git", ["remote"], cwd: repo)
-            .split(separator: "\n").map(String.init)
+        let remotes = try listRemotes(repo: repo)
         if remotes.contains("origin") { return "origin" }
         guard remotes.count == 1, let remote = remotes.first else {
             throw GitActionError.noPushRemote
         }
         return remote
+    }
+
+    private func localBranchExists(_ name: String, repo: URL) throws -> Bool {
+        try shell.run(
+            "git", ["show-ref", "--verify", "--quiet", "refs/heads/\(name)"], cwd: repo
+        ).isSuccess
     }
 }
 

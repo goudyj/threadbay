@@ -162,7 +162,6 @@
 "error.base_branch_empty" = "基础分支为空。";
 "error.space_name_empty" = "空间名称为空。";
 "error.invalid_pr" = "拉取请求编号必须大于零。";
-"error.destination_exists" = "目标位置已存在：%@";
 "error.tool_not_found" = "找不到工具“%@”。请确认它已安装并位于 PATH 中。";
 "error.command_failed" = "命令执行失败：%@%@";
 "error.commit_message_empty" = "提交信息为空。";

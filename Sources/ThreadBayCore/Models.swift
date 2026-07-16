@@ -58,6 +58,9 @@ public struct GitBranch: Identifiable, Hashable, Sendable {
         }
     }
 
+    public var isLocal: Bool { location == .local }
+    public var isRemote: Bool { !isLocal }
+
     public init(name: String, location: Location) {
         self.name = name
         self.location = location

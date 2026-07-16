@@ -62,7 +62,6 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
     nonisolated let id = UUID()
     private(set) var space: TrackedSpace
     let agent: AgentDefinition
-    let startedAt = Date()
     let terminalView: SessionTerminalView
     private let notifierPath: String?
     private let currentBranch: String?

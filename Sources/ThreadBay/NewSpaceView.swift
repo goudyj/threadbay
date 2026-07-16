@@ -242,59 +242,84 @@ struct NewSpaceView: View {
 
     private func branchSelector(_ title: String, selection: Binding<String>) -> some View {
         fieldRow(title, alignment: .top) {
-            VStack(spacing: 0) {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField(app.localized("new_space.search"), text: $searchText)
-                        .textFieldStyle(.plain)
-                    if loadingBranches {
-                        ProgressView().controlSize(.small)
-                    }
-                    Button {
-                        Task { await loadBranches(refresh: true) }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .buttonStyle(.borderless)
-                    .disabled(loadingBranches)
-                    .help(app.localized("new_space.reload"))
+            searchableSelector(
+                searchText: $searchText,
+                placeholder: app.localized("new_space.search"),
+                isLoading: loadingBranches,
+                reloadHelp: app.localized("new_space.reload"),
+                height: 172,
+                onReload: { Task { await loadBranches(refresh: true) } }
+            ) {
+                branchSection(
+                    title: app.localized("new_space.local_branches"),
+                    branches: filteredBranches.filter(\.isLocal),
+                    selection: selection)
+                branchSection(
+                    title: app.localized("new_space.remote_branches"),
+                    branches: filteredBranches.filter(\.isRemote),
+                    selection: selection)
+
+                if filteredBranches.isEmpty, !loadingBranches {
+                    Text(app.localized("new_space.no_branches"))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, minHeight: 90)
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-
-                Divider()
-
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        branchSection(
-                            title: app.localized("new_space.local_branches"),
-                            branches: filteredBranches.filter { $0.location == .local },
-                            selection: selection)
-                        branchSection(
-                            title: app.localized("new_space.remote_branches"),
-                            branches: filteredBranches.filter {
-                                if case .remote = $0.location { return true }
-                                return false
-                            },
-                            selection: selection)
-
-                        if filteredBranches.isEmpty, !loadingBranches {
-                            Text(app.localized("new_space.no_branches"))
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, minHeight: 90)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-                .frame(height: 172)
-            }
-            .background(Color(nsColor: .controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
             }
         }
+    }
+
+    /// Search header + bordered scrolling list shared by the branch and
+    /// pull-request selectors.
+    private func searchableSelector<Content: View>(
+        searchText: Binding<String>,
+        placeholder: String,
+        isLoading: Bool,
+        reloadHelp: String,
+        height: CGFloat,
+        onReload: @escaping () -> Void,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField(placeholder, text: searchText)
+                    .textFieldStyle(.plain)
+                if isLoading {
+                    ProgressView().controlSize(.small)
+                }
+                Button(action: onReload) {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.borderless)
+                .disabled(isLoading)
+                .help(reloadHelp)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+
+            Divider()
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0, content: content)
+                    .padding(.vertical, 4)
+            }
+            .frame(height: height)
+        }
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+        }
+    }
+
+    private func sectionCaption(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 10)
+            .padding(.top, 7)
+            .padding(.bottom, 3)
     }
 
     @ViewBuilder
@@ -304,12 +329,7 @@ struct NewSpaceView: View {
         selection: Binding<String>
     ) -> some View {
         if !branches.isEmpty {
-            Text(title.uppercased())
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 10)
-                .padding(.top, 7)
-                .padding(.bottom, 3)
+            sectionCaption(title)
 
             ForEach(branches) { branch in
                 Button {
@@ -348,56 +368,25 @@ struct NewSpaceView: View {
 
     private var pullRequestSelector: some View {
         fieldRow(app.localized("new_space.mode.pr"), alignment: .top) {
-            VStack(spacing: 0) {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField(app.localized("new_space.pr_search"), text: $pullRequestSearch)
-                        .textFieldStyle(.plain)
-                    if loadingPullRequests {
-                        ProgressView().controlSize(.small)
+            searchableSelector(
+                searchText: $pullRequestSearch,
+                placeholder: app.localized("new_space.pr_search"),
+                isLoading: loadingPullRequests,
+                reloadHelp: app.localized("new_space.pr_reload"),
+                height: 190,
+                onReload: { Task { await loadPullRequests() } }
+            ) {
+                if !filteredPullRequests.isEmpty {
+                    sectionCaption(app.localized("new_space.pull_requests"))
+
+                    ForEach(filteredPullRequests) { pullRequest in
+                        pullRequestRow(pullRequest)
                     }
-                    Button {
-                        Task { await loadPullRequests() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .buttonStyle(.borderless)
-                    .disabled(loadingPullRequests)
-                    .help(app.localized("new_space.pr_reload"))
+                } else if !loadingPullRequests {
+                    Text(app.localized("new_space.no_pull_requests"))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, minHeight: 90)
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-
-                Divider()
-
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        if !filteredPullRequests.isEmpty {
-                            Text(app.localized("new_space.pull_requests").uppercased())
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 10)
-                                .padding(.top, 7)
-                                .padding(.bottom, 3)
-
-                            ForEach(filteredPullRequests) { pullRequest in
-                                pullRequestRow(pullRequest)
-                            }
-                        } else if !loadingPullRequests {
-                            Text(app.localized("new_space.no_pull_requests"))
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, minHeight: 90)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-                .frame(height: 190)
-            }
-            .background(Color(nsColor: .controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
             }
         }
     }
@@ -496,16 +485,14 @@ struct NewSpaceView: View {
 
         loadingBranches = true
         defer { loadingBranches = false }
-        let listed: [GitBranch]?
-        if refresh {
-            listed = await app.refreshBranches(project: project)
-        } else {
-            listed = await app.listBranches(project: project)
-        }
+        async let currentTask = app.currentBranch(project: project)
+        let listed = refresh
+            ? await app.refreshBranches(project: project)
+            : await app.listBranches(project: project)
         if let message = app.consumeErrorMessage() {
             errorText = message
         }
-        let current = await app.currentBranch(project: project)
+        let current = await currentTask
         guard project.name == projectName, let listed else { return }
 
         branches = listed

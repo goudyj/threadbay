@@ -162,7 +162,6 @@
 "error.base_branch_empty" = "The base branch is empty.";
 "error.space_name_empty" = "The space name is empty.";
 "error.invalid_pr" = "The pull request number must be greater than zero.";
-"error.destination_exists" = "The destination already exists: %@";
 "error.tool_not_found" = "Tool not found: “%@”. Make sure it is installed and available in PATH.";
 "error.command_failed" = "Command failed: %@%@";
 "error.commit_message_empty" = "The commit message is empty.";

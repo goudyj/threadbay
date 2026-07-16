@@ -54,13 +54,16 @@ public enum Naming {
         return "\(projectSlug.isEmpty ? "project" : projectSlug)__\(adjective)-\(animal)"
     }
 
-    /// Appends `-2`, `-3`, … until `isTaken` clears the candidate.
-    public static func ensureUniqueName(base: String, isTaken: (String) -> Bool) -> String {
+    /// Appends `-2`, `-3`, … (or `separator`-joined) until `isTaken` clears
+    /// the candidate.
+    public static func ensureUniqueName(
+        base: String, separator: String = "-", isTaken: (String) -> Bool
+    ) -> String {
         var i = 1
         var name = base
         while isTaken(name) {
             i += 1
-            name = "\(base)-\(i)"
+            name = "\(base)\(separator)\(i)"
         }
         return name
     }
