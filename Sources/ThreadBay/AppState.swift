@@ -124,9 +124,22 @@ final class AppState: ObservableObject {
         do {
             return try await Task.detached { try git.refreshBranches(repo: repo) }.value
         } catch {
-            errorMessage = localizedError(error)
+            return await localBranchesFallback(repo: repo, fetchError: error)
+        }
+    }
+
+    /// A failed fetch (network down, concurrent git holding a ref lock…)
+    /// degrades to the locally known refs with a warning instead of blocking
+    /// branch selection.
+    private func localBranchesFallback(repo: URL, fetchError: Error) async -> [GitBranch]? {
+        let git = gitService
+        let local = await Task.detached { try? git.listBranches(repo: repo) }.value
+        guard let branches = local else {
+            errorMessage = localizedError(fetchError)
             return nil
         }
+        errorMessage = localized("git.fetch_failed_stale_branches", localizedError(fetchError))
+        return branches
     }
 
     func currentBranch(project: Project) async -> String? {
@@ -176,8 +189,11 @@ final class AppState: ObservableObject {
                     : try git.listBranches(repo: repo)
             }.value
         } catch {
-            errorMessage = localizedError(error)
-            return nil
+            guard refresh else {
+                errorMessage = localizedError(error)
+                return nil
+            }
+            return await localBranchesFallback(repo: repo, fetchError: error)
         }
     }
 

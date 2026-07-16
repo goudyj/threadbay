@@ -46,6 +46,7 @@
 "git.current_branch" = "Branche courante : %@";
 "git.unknown_branch" = "Branche inconnue";
 "git.switch_completed_with_warning" = "La branche %@ est maintenant active, mais un hook Git a signalé une erreur :\n%@";
+"git.fetch_failed_stale_branches" = "Impossible de rafraîchir les branches depuis les remotes ; la liste connue localement est affichée.\n%@";
 "git.create_commit" = "Créer un commit…";
 "git.automatic_commit" = "Commit automatique";
 "git.commit_title" = "Créer un commit dans %@";

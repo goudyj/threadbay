@@ -46,6 +46,7 @@
 "git.current_branch" = "Rama actual: %@";
 "git.unknown_branch" = "Rama desconocida";
 "git.switch_completed_with_warning" = "Se cambió a %@, pero un hook de Git informó de un error:\n%@";
+"git.fetch_failed_stale_branches" = "No se pudieron actualizar las ramas desde los remotos; se muestra la lista conocida localmente.\n%@";
 "git.create_commit" = "Crear commit…";
 "git.automatic_commit" = "Commit automático";
 "git.commit_title" = "Crear un commit en %@";

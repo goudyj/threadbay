@@ -502,8 +502,8 @@ struct NewSpaceView: View {
         } else {
             listed = await app.listBranches(project: project)
         }
-        if listed == nil {
-            errorText = app.consumeErrorMessage()
+        if let message = app.consumeErrorMessage() {
+            errorText = message
         }
         let current = await app.currentBranch(project: project)
         guard project.name == projectName, let listed else { return }

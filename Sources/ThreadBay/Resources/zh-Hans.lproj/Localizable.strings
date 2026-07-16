@@ -46,6 +46,7 @@
 "git.current_branch" = "当前分支：%@";
 "git.unknown_branch" = "未知分支";
 "git.switch_completed_with_warning" = "已切换到 %@，但 Git 钩子报告了错误：\n%@";
+"git.fetch_failed_stale_branches" = "无法从远程刷新分支，已显示本地已知的分支列表。\n%@";
 "git.create_commit" = "创建提交…";
 "git.automatic_commit" = "自动提交";
 "git.commit_title" = "在 %@ 中创建提交";
