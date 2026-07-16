@@ -44,13 +44,10 @@ struct BranchSwitcherView: View {
             List {
                 branchSection(
                     app.localized("new_space.local_branches"),
-                    branches: filteredBranches.filter { $0.location == .local })
+                    branches: filteredBranches.filter(\.isLocal))
                 branchSection(
                     app.localized("new_space.remote_branches"),
-                    branches: filteredBranches.filter {
-                        if case .remote = $0.location { return true }
-                        return false
-                    })
+                    branches: filteredBranches.filter(\.isRemote))
             }
             .overlay {
                 if filteredBranches.isEmpty, !loading {

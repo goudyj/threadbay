@@ -162,7 +162,6 @@
 "error.base_branch_empty" = "La branche de base est vide.";
 "error.space_name_empty" = "Le nom de l’espace est vide.";
 "error.invalid_pr" = "Le numéro de pull request doit être supérieur à zéro.";
-"error.destination_exists" = "La destination existe déjà : %@";
 "error.tool_not_found" = "Outil introuvable : « %@ ». Vérifiez qu’il est installé et dans le PATH.";
 "error.command_failed" = "Échec de la commande : %@%@";
 "error.commit_message_empty" = "Le message du commit est vide.";

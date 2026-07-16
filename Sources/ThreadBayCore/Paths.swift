@@ -22,10 +22,6 @@ public enum Paths {
         currentLocations.eventSocket
     }
 
-    public static var appDirectory: URL {
-        currentLocations.appDirectory
-    }
-
     public static var home: URL {
         URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
     }
@@ -40,7 +36,6 @@ public enum Paths {
         let spacesFile: URL
         let agentsFile: URL
         let eventSocket: URL
-        let appDirectory: URL
     }
 
     static func locations(
@@ -56,8 +51,7 @@ public enum Paths {
                 .appendingPathComponent(environment.spacesDirectoryName, isDirectory: true)
                 .appendingPathComponent("spaces.yaml"),
             agentsFile: appDirectory.appendingPathComponent("agents.yaml"),
-            eventSocket: appDirectory.appendingPathComponent("threadbay.sock"),
-            appDirectory: appDirectory)
+            eventSocket: appDirectory.appendingPathComponent("threadbay.sock"))
     }
 
     private static var currentLocations: Locations {

@@ -203,8 +203,13 @@ private struct CommitGeneratorsEditor: View {
 
         HStack {
             Button(app.localized("settings.add_generator")) {
+                let name = Naming.ensureUniqueName(
+                    base: app.localized("settings.new_generator"), separator: " "
+                ) { candidate in
+                    app.commitGenerators.contains { $0.name == candidate }
+                }
                 app.commitGenerators.append(
-                    CommitGeneratorDefinition(name: uniqueName(), command: ""))
+                    CommitGeneratorDefinition(name: name, command: ""))
                 app.persistAgents()
             }
             Spacer()
@@ -223,16 +228,6 @@ private struct CommitGeneratorsEditor: View {
             })
     }
 
-    private func uniqueName() -> String {
-        let baseName = app.localized("settings.new_generator")
-        var name = baseName
-        var n = 2
-        while app.commitGenerators.contains(where: { $0.name == name }) {
-            name = "\(baseName) \(n)"
-            n += 1
-        }
-        return name
-    }
 }
 
 /// Edits the agent catalogue (`agents.yaml`, app-only — decision n°3). Rows are
@@ -266,8 +261,13 @@ private struct AgentsEditor: View {
 
         HStack {
             Button(app.localized("settings.add_agent")) {
+                let name = Naming.ensureUniqueName(
+                    base: app.localized("settings.new_agent"), separator: " "
+                ) { candidate in
+                    app.agents.contains { $0.name == candidate }
+                }
                 app.agents.append(
-                    AgentDefinition(name: uniqueName(), command: "", kind: .custom))
+                    AgentDefinition(name: name, command: "", kind: .custom))
                 app.persistAgents()
             }
             Spacer()
@@ -287,14 +287,4 @@ private struct AgentsEditor: View {
             })
     }
 
-    private func uniqueName() -> String {
-        let baseName = app.localized("settings.new_agent")
-        var name = baseName
-        var n = 2
-        while app.agents.contains(where: { $0.name == name }) {
-            name = "\(baseName) \(n)"
-            n += 1
-        }
-        return name
-    }
 }

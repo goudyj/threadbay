@@ -223,12 +223,7 @@ final class AppState: ObservableObject {
     func changedFiles(in space: TrackedSpace) async -> [String]? {
         let git = gitService
         let repo = URL(fileURLWithPath: space.destination)
-        do {
-            return try await Task.detached { try git.changedFiles(repo: repo) }.value
-        } catch {
-            errorMessage = localizedError(error)
-            return nil
-        }
+        return await performReporting { try git.changedFiles(repo: repo) }
     }
 
     func generateCommitMessage(
@@ -241,13 +236,8 @@ final class AppState: ObservableObject {
         }
         let service = commitMessageService
         let repo = URL(fileURLWithPath: space.destination)
-        do {
-            return try await Task.detached {
-                try service.generate(provider: provider, repo: repo)
-            }.value
-        } catch {
-            errorMessage = localizedError(error)
-            return nil
+        return await performReporting {
+            try service.generate(provider: provider, repo: repo)
         }
     }
 
@@ -294,6 +284,20 @@ final class AppState: ObservableObject {
             try git.pushCurrentBranch(forceWithLease: forceWithLease, repo: repo)
         } successMessage: { current in
             localized(forceWithLease ? "git.success.pushed_force" : "git.success.pushed", current)
+        }
+    }
+
+    /// Runs `work` off the main actor and reports a thrown error via
+    /// `errorMessage`. Returns nil on failure.
+    @discardableResult
+    private func performReporting<T: Sendable>(
+        _ work: @escaping @Sendable () throws -> T
+    ) async -> T? {
+        do {
+            return try await Task.detached(operation: work).value
+        } catch {
+            errorMessage = localizedError(error)
+            return nil
         }
     }
 
@@ -356,13 +360,8 @@ final class AppState: ObservableObject {
     func listPullRequests(project: Project) async -> [PullRequestSummary]? {
         let github = githubService
         let repo = URL(fileURLWithPath: project.path)
-        do {
-            return try await Task.detached {
-                try github.listOpenPullRequests(repo: repo)
-            }.value
-        } catch {
-            errorMessage = localizedError(error)
-            return nil
+        return await performReporting {
+            try github.listOpenPullRequests(repo: repo)
         }
     }
 
@@ -385,17 +384,13 @@ final class AppState: ObservableObject {
         isBusy = true
         defer { isBusy = false }
         let service = spaceService
-        do {
-            _ = try await Task.detached {
-                try service.create(
-                    project: project, creation: creation, displayName: displayName)
-            }.value
-            reload()
-            return true
-        } catch {
-            errorMessage = localizedError(error)
-            return false
+        let created = await performReporting {
+            try service.create(
+                project: project, creation: creation, displayName: displayName)
         }
+        guard created != nil else { return false }
+        reload()
+        return true
     }
 
     /// Creates a tracked terminal space (home directory, no copy or clone) and
@@ -404,21 +399,16 @@ final class AppState: ObservableObject {
         isBusy = true
         defer { isBusy = false }
         let service = spaceService
-        do {
-            let space = try await Task.detached {
-                try service.createTerminal(displayName: displayName)
-            }.value
-            spaces.append(space)
-            if let shell = agents.first(where: { $0.kind == .shell }) {
-                launchAgent(shell, in: space)
-            } else {
-                pendingSelectSpace = space.name
-            }
-            return true
-        } catch {
-            errorMessage = localizedError(error)
-            return false
+        guard let space = await performReporting({
+            try service.createTerminal(displayName: displayName)
+        }) else { return false }
+        spaces.append(space)
+        if let shell = agents.first(where: { $0.kind == .shell }) {
+            launchAgent(shell, in: space)
+        } else {
+            pendingSelectSpace = space.name
         }
+        return true
     }
 
     /// Body of the delete-confirmation dialogs: a terminal space is only
@@ -437,11 +427,8 @@ final class AppState: ObservableObject {
         sessionManager.closeSessions(for: space)
         let service = spaceService
         Task {
-            do {
-                try await Task.detached { try service.delete(space) }.value
+            if await performReporting({ try service.delete(space) }) != nil {
                 reload()
-            } catch {
-                errorMessage = localizedError(error)
             }
         }
     }
@@ -463,28 +450,31 @@ final class AppState: ObservableObject {
         guard case .local = branch.location else { return false }
         let git = gitService
         let repo = URL(fileURLWithPath: project.path)
-        do {
-            try await Task.detached {
-                try git.deleteLocalBranch(named: branch.name, repo: repo)
-            }.value
-            return true
-        } catch {
-            errorMessage = localizedError(error)
-            return false
-        }
+        return await performReporting {
+            try git.deleteLocalBranch(named: branch.name, repo: repo)
+        } != nil
     }
 
     // MARK: - Agents
 
     func launchAgent(_ agent: AgentDefinition, in space: TrackedSpace) {
-        let branch = space.supportsGitActions
-            ? currentBranch(for: space)
-                ?? gitService.currentBranch(repo: URL(fileURLWithPath: space.destination))
-            : nil
-        sessionManager.launch(
-            agent: agent, in: space, currentBranch: branch)
-        pendingSelectSpace = space.name
-        showMainWindow()
+        Task {
+            var branch: String?
+            if space.supportsGitActions {
+                branch = currentBranch(for: space)
+                if branch == nil {
+                    // Resolving the branch spawns git (and possibly a login
+                    // shell); keep that off the main actor.
+                    let git = gitService
+                    let repo = URL(fileURLWithPath: space.destination)
+                    branch = await Task.detached { git.currentBranch(repo: repo) }.value
+                }
+            }
+            sessionManager.launch(
+                agent: agent, in: space, currentBranch: branch)
+            pendingSelectSpace = space.name
+            showMainWindow()
+        }
     }
 
     func handleShortcut(_ event: NSEvent) -> Bool {
@@ -580,25 +570,13 @@ final class AppState: ObservableObject {
     func open(_ editor: Editor, _ space: TrackedSpace) {
         let service = openService
         let path = space.destination
-        Task {
-            do {
-                try await Task.detached { try service.open(editor, at: path) }.value
-            } catch {
-                errorMessage = localizedError(error)
-            }
-        }
+        Task { await performReporting { try service.open(editor, at: path) } }
     }
 
     func reveal(_ space: TrackedSpace) {
         let service = openService
         let path = space.destination
-        Task {
-            do {
-                try await Task.detached { try service.revealInFinder(path) }.value
-            } catch {
-                errorMessage = localizedError(error)
-            }
-        }
+        Task { await performReporting { try service.revealInFinder(path) } }
     }
 
     // MARK: - Settings management
@@ -652,8 +630,6 @@ final class AppState: ObservableObject {
                 return localized("error.space_name_empty")
             case .invalidPullRequest:
                 return localized("error.invalid_pr")
-            case .destinationExists(let path):
-                return localized("error.destination_exists", path)
             }
         }
 
@@ -708,14 +684,29 @@ final class AppState: ObservableObject {
     }
 }
 
-/// Formats a stored RFC3339 timestamp for display; falls back to the raw string.
-func formatCreatedAt(_ raw: String, locale: Locale) -> String {
+/// Formatter construction is expensive and this runs in list-row bodies on
+/// every publish, so both formatters are cached (the display one per locale).
+@MainActor
+private let createdAtParser: ISO8601DateFormatter = {
     let parser = ISO8601DateFormatter()
     parser.formatOptions = [.withInternetDateTime]
-    guard let date = parser.date(from: raw) else { return raw }
+    return parser
+}()
+
+@MainActor
+private var createdAtFormatters: [Locale: DateFormatter] = [:]
+
+/// Formats a stored RFC3339 timestamp for display; falls back to the raw string.
+@MainActor
+func formatCreatedAt(_ raw: String, locale: Locale) -> String {
+    guard let date = createdAtParser.date(from: raw) else { return raw }
+    if let formatter = createdAtFormatters[locale] {
+        return formatter.string(from: date)
+    }
     let out = DateFormatter()
     out.locale = locale
     out.dateStyle = .medium
     out.timeStyle = .short
+    createdAtFormatters[locale] = out
     return out.string(from: date)
 }

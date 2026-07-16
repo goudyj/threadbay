@@ -64,29 +64,8 @@ struct MainWindow: View {
                                                     app.localized("git.create_commit"),
                                                     systemImage: "checkmark.circle")
                                             }
-                                            Menu(app.localized("git.automatic_commit")) {
-                                                Button("Claude") {
-                                                    presentAutomaticCommit(
-                                                        .claude, name: "Claude", for: space)
-                                                }
-                                                Button("Codex") {
-                                                    presentAutomaticCommit(
-                                                        .codex, name: "Codex", for: space)
-                                                }
-                                                if !app.commitGenerators.isEmpty {
-                                                    Divider()
-                                                    ForEach(app.commitGenerators) { generator in
-                                                        Button(generator.name) {
-                                                            presentAutomaticCommit(
-                                                                .custom(command: generator.command),
-                                                                name: generator.name,
-                                                                for: space)
-                                                        }
-                                                        .disabled(generator.command
-                                                            .trimmingCharacters(
-                                                                in: .whitespacesAndNewlines).isEmpty)
-                                                    }
-                                                }
+                                            AutomaticCommitMenu {
+                                                presentAutomaticCommit($0, name: $1, for: space)
                                             }
                                             PushMenuButtons(space: space)
                                             Button {
@@ -128,34 +107,22 @@ struct MainWindow: View {
             guard let space = app.spaces.first(where: { $0.name == name }) else { return }
             Task { await app.refreshGitState(for: space) }
         }
-        .alert(app.localized("main.error"), isPresented: errorPresented) {
+        .alert(app.localized("main.error"), isPresented: Binding(presence: $app.errorMessage)) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(app.errorMessage ?? "")
         }
-        .alert(app.localized("main.warning"), isPresented: noticePresented) {
+        .alert(app.localized("main.warning"), isPresented: Binding(presence: $app.noticeMessage)) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(app.noticeMessage ?? "")
         }
-        .alert(app.localized("main.success"), isPresented: successPresented) {
+        .alert(app.localized("main.success"), isPresented: Binding(presence: $app.successMessage)) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(app.successMessage ?? "")
         }
-        .alert(
-            app.localized("management.rename_title", renameSpace?.displayTitle ?? ""),
-            isPresented: renamePresented
-        ) {
-            TextField(app.localized("management.display_name"), text: $renameText)
-            Button(app.localized("common.cancel"), role: .cancel) { renameSpace = nil }
-            Button(app.localized("management.rename")) {
-                if let space = renameSpace { app.rename(space, displayName: renameText) }
-                renameSpace = nil
-            }
-        } message: {
-            Text(app.localized("management.rename_help"))
-        }
+        .renameSpaceAlert(space: $renameSpace, text: $renameText)
         .confirmationDialog(
             closeSessionTitle,
             isPresented: closeSessionPresented,
@@ -242,30 +209,6 @@ struct MainWindow: View {
         }
     }
 
-    private var errorPresented: Binding<Bool> {
-        Binding(
-            get: { app.errorMessage != nil },
-            set: { if !$0 { app.errorMessage = nil } })
-    }
-
-    private var noticePresented: Binding<Bool> {
-        Binding(
-            get: { app.noticeMessage != nil },
-            set: { if !$0 { app.noticeMessage = nil } })
-    }
-
-    private var successPresented: Binding<Bool> {
-        Binding(
-            get: { app.successMessage != nil },
-            set: { if !$0 { app.successMessage = nil } })
-    }
-
-    private var renamePresented: Binding<Bool> {
-        Binding(
-            get: { renameSpace != nil },
-            set: { if !$0 { renameSpace = nil } })
-    }
-
     private var closeSessionTitle: String {
         guard let session = app.pendingCloseSession else {
             return app.localized("terminal.close_title")
@@ -277,6 +220,45 @@ struct MainWindow: View {
         Binding(
             get: { app.pendingCloseSessionID != nil },
             set: { if !$0 { app.cancelCloseSession() } })
+    }
+}
+
+/// "Automatic commit" submenu shared by the sidebar context menu and the
+/// row's ellipsis menu.
+private struct AutomaticCommitMenu: View {
+    @EnvironmentObject var app: AppState
+    let onSelect: (CommitMessageProvider, String) -> Void
+
+    var body: some View {
+        Menu(app.localized("git.automatic_commit")) {
+            Button("Claude") { onSelect(.claude, "Claude") }
+            Button("Codex") { onSelect(.codex, "Codex") }
+            if !app.commitGenerators.isEmpty {
+                Divider()
+                ForEach(app.commitGenerators) { generator in
+                    Button(generator.name) {
+                        onSelect(.custom(command: generator.command), generator.name)
+                    }
+                    .disabled(generator.command
+                        .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+}
+
+/// "Open in <editor>" menu shared by the detail header and the overview row.
+private struct OpenInEditorMenu: View {
+    @EnvironmentObject var app: AppState
+    let space: TrackedSpace
+
+    var body: some View {
+        Menu(app.localized("main.open_in")) {
+            ForEach(Editor.allCases) { editor in
+                Button(editor.displayName) { app.open(editor, space) }
+            }
+        }
+        .fixedSize()
     }
 }
 
@@ -336,21 +318,7 @@ private struct SidebarSpaceRow: View {
             if space.supportsGitActions {
                 Menu {
                     Button(app.localized("git.create_commit"), action: onCommit)
-                    Menu(app.localized("git.automatic_commit")) {
-                        Button("Claude") { onAutomaticCommit(.claude, "Claude") }
-                        Button("Codex") { onAutomaticCommit(.codex, "Codex") }
-                        if !app.commitGenerators.isEmpty {
-                            Divider()
-                            ForEach(app.commitGenerators) { generator in
-                                Button(generator.name) {
-                                    onAutomaticCommit(
-                                        .custom(command: generator.command), generator.name)
-                                }
-                                .disabled(generator.command
-                                    .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                            }
-                        }
-                    }
+                    AutomaticCommitMenu(onSelect: onAutomaticCommit)
                     Divider()
                     PushMenuButtons(space: space)
                     Button(app.localized("git.switch_branch"), action: onSwitchBranch)
@@ -383,7 +351,7 @@ private struct SpaceDetail: View {
     @EnvironmentObject var app: AppState
     let space: TrackedSpace
 
-    @State private var confirmingDelete = false
+    @State private var spaceToDelete: TrackedSpace?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -391,16 +359,7 @@ private struct SpaceDetail: View {
             Divider()
             TerminalPane(manager: app.sessionManager, space: space)
         }
-        .confirmationDialog(
-            app.localized("main.delete_title", space.displayTitle),
-            isPresented: $confirmingDelete,
-            titleVisibility: .visible
-        ) {
-            Button(app.localized("common.delete"), role: .destructive) { app.delete(space) }
-            Button(app.localized("common.cancel"), role: .cancel) {}
-        } message: {
-            Text(app.deleteConfirmationMessage(for: space))
-        }
+        .confirmDeleteSpace($spaceToDelete)
     }
 
     private var header: some View {
@@ -416,16 +375,11 @@ private struct SpaceDetail: View {
                     .textSelection(.enabled)
             }
             Spacer()
-            Menu(app.localized("main.open_in")) {
-                ForEach(Editor.allCases) { editor in
-                    Button(editor.displayName) { app.open(editor, space) }
-                }
-            }
-            .fixedSize()
+            OpenInEditorMenu(space: space)
             HStack(spacing: 8) {
                 Button("Finder", systemImage: "folder") { app.reveal(space) }
                 Button(role: .destructive) {
-                    confirmingDelete = true
+                    spaceToDelete = space
                 } label: {
                     Label(app.localized("common.delete"), systemImage: "trash")
                 }
@@ -443,7 +397,7 @@ struct SpaceRow: View {
     @EnvironmentObject var app: AppState
     let space: TrackedSpace
 
-    @State private var confirmingDelete = false
+    @State private var spaceToDelete: TrackedSpace?
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -469,17 +423,12 @@ struct SpaceRow: View {
                         Label(app.localized("main.launch_agent"), systemImage: "play.fill")
                     }
                     .fixedSize()
-                    Menu(app.localized("main.open_in")) {
-                        ForEach(Editor.allCases) { editor in
-                            Button(editor.displayName) { app.open(editor, space) }
-                        }
-                    }
-                    .fixedSize()
+                    OpenInEditorMenu(space: space)
                 }
                 HStack(spacing: 8) {
                     Button("Finder", systemImage: "folder") { app.reveal(space) }
                     Button(role: .destructive) {
-                        confirmingDelete = true
+                        spaceToDelete = space
                     } label: {
                         Label(app.localized("common.delete"), systemImage: "trash")
                     }
@@ -489,16 +438,7 @@ struct SpaceRow: View {
             }
         }
         .padding(.vertical, 4)
-        .confirmationDialog(
-            app.localized("main.delete_title", space.displayTitle),
-            isPresented: $confirmingDelete,
-            titleVisibility: .visible
-        ) {
-            Button(app.localized("common.delete"), role: .destructive) { app.delete(space) }
-            Button(app.localized("common.cancel"), role: .cancel) {}
-        } message: {
-            Text(app.deleteConfirmationMessage(for: space))
-        }
+        .confirmDeleteSpace($spaceToDelete)
     }
 }
 

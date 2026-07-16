@@ -162,7 +162,6 @@
 "error.base_branch_empty" = "La rama base está vacía.";
 "error.space_name_empty" = "El nombre del espacio está vacío.";
 "error.invalid_pr" = "El número de la pull request debe ser mayor que cero.";
-"error.destination_exists" = "El destino ya existe: %@";
 "error.tool_not_found" = "No se encontró la herramienta “%@”. Comprueba que está instalada y disponible en PATH.";
 "error.command_failed" = "Error al ejecutar el comando: %@%@";
 "error.commit_message_empty" = "El mensaje del commit está vacío.";

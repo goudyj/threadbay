@@ -46,24 +46,10 @@ public enum AgentEventNotifier {
         guard fileDescriptor >= 0 else { throw NotifierError.socketCreationFailed }
         defer { Darwin.close(fileDescriptor) }
 
-        var address = sockaddr_un()
-        address.sun_family = sa_family_t(AF_UNIX)
-        let pathBytes = Array(socketPath.utf8)
-        let maximumLength = MemoryLayout.size(ofValue: address.sun_path) - 1
-        guard pathBytes.count <= maximumLength else {
-            throw NotifierError.pathTooLong(socketPath)
-        }
-        withUnsafeMutableBytes(of: &address.sun_path) { destination in
-            destination.copyBytes(from: pathBytes)
-        }
-
-        let connected = withUnsafePointer(to: &address) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                Darwin.connect(
-                    fileDescriptor,
-                    $0,
-                    socklen_t(MemoryLayout<sockaddr_un>.size))
-            }
+        let connected = try withUnixSocketAddress(
+            socketPath, pathTooLong: NotifierError.pathTooLong
+        ) {
+            Darwin.connect(fileDescriptor, $0, $1)
         }
         guard connected == 0 else { throw NotifierError.connectionFailed(socketPath) }
 

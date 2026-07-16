@@ -41,22 +41,14 @@ public final class EventSocketServer: @unchecked Sendable {
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { throw SocketError.creationFailed }
 
-        var addr = sockaddr_un()
-        addr.sun_family = sa_family_t(AF_UNIX)
-        let maxLen = MemoryLayout.size(ofValue: addr.sun_path) - 1
-        let bytes = Array(path.utf8)
-        guard bytes.count <= maxLen else {
-            close(fd)
-            throw SocketError.pathTooLong(path)
-        }
-        withUnsafeMutableBytes(of: &addr.sun_path) { dst in
-            dst.copyBytes(from: bytes)
-        }
-
-        let bound = withUnsafePointer(to: &addr) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                Darwin.bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+        let bound: Int32
+        do {
+            bound = try withUnixSocketAddress(path, pathTooLong: SocketError.pathTooLong) {
+                Darwin.bind(fd, $0, $1)
             }
+        } catch {
+            close(fd)
+            throw error
         }
         guard bound == 0, listen(fd, 16) == 0 else {
             close(fd)

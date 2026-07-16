@@ -35,21 +35,29 @@ enum AppLanguage: String, CaseIterable, Identifiable, Sendable {
 }
 
 enum L10n {
+    /// Translation bundles never change at runtime; resolve each `.lproj` once
+    /// instead of on every string lookup (view bodies call this constantly).
+    private static let bundles: [String: Bundle] = {
+        var result: [String: Bundle] = [:]
+        for language in AppLanguage.allCases where language != .system {
+            let identifier = language.rawValue
+            let resourceIdentifier = identifier == "zh-Hans" ? "zh-hans" : identifier
+            if let path = Bundle.module.path(forResource: resourceIdentifier, ofType: "lproj"),
+                let bundle = Bundle(path: path)
+            {
+                result[identifier] = bundle
+            }
+        }
+        return result
+    }()
+
     static func string(
         _ key: String,
         language: AppLanguage,
         arguments: [CVarArg] = []
     ) -> String {
         let identifier = language.resolvedIdentifier
-        let resourceIdentifier = identifier == "zh-Hans" ? "zh-hans" : identifier
-        let bundle: Bundle
-        if let path = Bundle.module.path(forResource: resourceIdentifier, ofType: "lproj"),
-            let localizedBundle = Bundle(path: path)
-        {
-            bundle = localizedBundle
-        } else {
-            bundle = Bundle.module
-        }
+        let bundle = Self.bundles[identifier] ?? Bundle.module
 
         let format = bundle.localizedString(forKey: key, value: key, table: nil)
         guard !arguments.isEmpty else { return format }

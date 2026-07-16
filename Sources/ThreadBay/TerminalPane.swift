@@ -52,7 +52,7 @@ struct TerminalPane: View {
         .onChange(of: activeState) { _, _ in acknowledgeIfVisible() }
         .alert(
             app.localized("terminal.rename_title", renameSession?.displayName ?? ""),
-            isPresented: renamePresented
+            isPresented: Binding(presence: $renameSession)
         ) {
             TextField(app.localized("terminal.tab_name"), text: $renameText)
             Button(app.localized("common.cancel"), role: .cancel) { renameSession = nil }
@@ -61,12 +61,6 @@ struct TerminalPane: View {
                 renameSession = nil
             }
         }
-    }
-
-    private var renamePresented: Binding<Bool> {
-        Binding(
-            get: { renameSession != nil },
-            set: { if !$0 { renameSession = nil } })
     }
 
     /// A running agent goes through the Cmd+W confirmation dialog; a finished
