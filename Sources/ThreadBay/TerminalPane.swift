@@ -43,12 +43,10 @@ struct TerminalPane: View {
                 }
             }
         }
-        // Covers every "the user now sees this session" path: space opened
-        // from the sidebar, tab switch, window refocus, and an event landing
-        // while the session is already on screen.
+        // Covers every deliberate "the user now sees this session" path:
+        // space opened from the sidebar, tab switch, and window refocus.
         .onAppear { acknowledgeIfVisible() }
         .onChange(of: current?.id) { _, _ in acknowledgeIfVisible() }
-        .onChange(of: current?.attention) { _, _ in acknowledgeIfVisible() }
         .onChange(of: activeState) { _, _ in acknowledgeIfVisible() }
         .alert(
             app.localized("terminal.rename_title", renameSession?.displayName ?? ""),
