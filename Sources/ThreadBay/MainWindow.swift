@@ -19,6 +19,7 @@ struct MainWindow: View {
     @State private var showManagement = false
     @State private var renameSpace: TrackedSpace?
     @State private var renameText = ""
+    @State private var spaceToDelete: TrackedSpace?
     @State private var branchSwitchSpace: TrackedSpace?
     @State private var commitRequest: CommitRequest?
 
@@ -44,38 +45,20 @@ struct MainWindow: View {
                                     onAutomaticCommit: {
                                         presentAutomaticCommit($0, name: $1, for: space)
                                     },
-                                    onSwitchBranch: { branchSwitchSpace = space })
+                                    onSwitchBranch: { branchSwitchSpace = space },
+                                    onRename: { presentRename(for: space) },
+                                    onDelete: { spaceToDelete = space })
                                     .tag(space.name)
                                     .contextMenu {
-                                        Button {
-                                            renameSpace = space
-                                            renameText = space.displayTitle
-                                        } label: {
-                                            Label(
-                                                app.localized("management.rename"),
-                                                systemImage: "pencil")
-                                        }
-                                        if space.supportsGitActions {
-                                            Divider()
-                                            Button {
-                                                presentCommit(for: space)
-                                            } label: {
-                                                Label(
-                                                    app.localized("git.create_commit"),
-                                                    systemImage: "checkmark.circle")
-                                            }
-                                            AutomaticCommitMenu {
+                                        SidebarSpaceActions(
+                                            space: space,
+                                            onCommit: { presentCommit(for: space) },
+                                            onAutomaticCommit: {
                                                 presentAutomaticCommit($0, name: $1, for: space)
-                                            }
-                                            PushMenuButtons(space: space)
-                                            Button {
-                                                branchSwitchSpace = space
-                                            } label: {
-                                                Label(
-                                                    app.localized("git.switch_branch"),
-                                                    systemImage: "arrow.triangle.branch")
-                                            }
-                                        }
+                                            },
+                                            onSwitchBranch: { branchSwitchSpace = space },
+                                            onRename: { presentRename(for: space) },
+                                            onDelete: { spaceToDelete = space })
                                     }
                             }
                         }
@@ -123,6 +106,7 @@ struct MainWindow: View {
             Text(app.successMessage ?? "")
         }
         .renameSpaceAlert(space: $renameSpace, text: $renameText)
+        .confirmDeleteSpace($spaceToDelete)
         .confirmationDialog(
             closeSessionTitle,
             isPresented: closeSessionPresented,
@@ -176,6 +160,11 @@ struct MainWindow: View {
 
     private func presentCommit(for space: TrackedSpace) {
         commitRequest = CommitRequest(space: space, mode: .manual)
+    }
+
+    private func presentRename(for space: TrackedSpace) {
+        renameSpace = space
+        renameText = space.displayTitle
     }
 
     private func presentAutomaticCommit(
@@ -282,6 +271,40 @@ private struct PushMenuButtons: View {
     }
 }
 
+/// Actions shared by a sidebar row's context and ellipsis menus.
+private struct SidebarSpaceActions: View {
+    @EnvironmentObject var app: AppState
+    let space: TrackedSpace
+    let onCommit: () -> Void
+    let onAutomaticCommit: (CommitMessageProvider, String) -> Void
+    let onSwitchBranch: () -> Void
+    let onRename: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        Button(action: onRename) {
+            Label(app.localized("management.rename"), systemImage: "pencil")
+        }
+        if space.supportsGitActions {
+            Divider()
+            Button(action: onCommit) {
+                Label(app.localized("git.create_commit"), systemImage: "checkmark.circle")
+            }
+            AutomaticCommitMenu(onSelect: onAutomaticCommit)
+            PushMenuButtons(space: space)
+            Button(action: onSwitchBranch) {
+                Label(
+                    app.localized("git.switch_branch"),
+                    systemImage: "arrow.triangle.branch")
+            }
+        }
+        Divider()
+        Button(role: .destructive, action: onDelete) {
+            Label(app.localized("common.delete"), systemImage: "trash")
+        }
+    }
+}
+
 /// Sidebar row: space name plus a badge with the number of active agents; the
 /// badge turns orange when an agent needs input.
 private struct SidebarSpaceRow: View {
@@ -291,6 +314,8 @@ private struct SidebarSpaceRow: View {
     let onCommit: () -> Void
     let onAutomaticCommit: (CommitMessageProvider, String) -> Void
     let onSwitchBranch: () -> Void
+    let onRename: () -> Void
+    let onDelete: () -> Void
 
     var body: some View {
         HStack {
@@ -315,20 +340,20 @@ private struct SidebarSpaceRow: View {
                     .foregroundStyle(.white)
                     .help(badgeHelp(running: running))
             }
-            if space.supportsGitActions {
-                Menu {
-                    Button(app.localized("git.create_commit"), action: onCommit)
-                    AutomaticCommitMenu(onSelect: onAutomaticCommit)
-                    Divider()
-                    PushMenuButtons(space: space)
-                    Button(app.localized("git.switch_branch"), action: onSwitchBranch)
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
+            Menu {
+                SidebarSpaceActions(
+                    space: space,
+                    onCommit: onCommit,
+                    onAutomaticCommit: onAutomaticCommit,
+                    onSwitchBranch: onSwitchBranch,
+                    onRename: onRename,
+                    onDelete: onDelete)
+            } label: {
+                Image(systemName: "ellipsis.circle")
             }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
         }
     }
 
