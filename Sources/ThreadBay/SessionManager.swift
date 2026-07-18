@@ -6,7 +6,7 @@ import ThreadBayCore
 /// session, and posts macOS notifications for the three notified situations.
 @MainActor
 final class SessionManager: ObservableObject {
-    @Published private(set) var sessions: [AgentSession] = []
+    @Published private(set) var sessions: [AgentSession]
     @Published var selectedID: UUID?
 
     /// Installed by AppState to surface launch errors in the UI.
@@ -19,12 +19,20 @@ final class SessionManager: ObservableObject {
     private var terminalTheme: TerminalTheme = .system
     private var language: AppLanguage = .system
 
+    init(sessions: [AgentSession] = []) {
+        self.sessions = sessions
+    }
+
     func sessions(for space: TrackedSpace) -> [AgentSession] {
         sessions.filter { $0.space.name == space.name }
     }
 
     func runningCount(for space: TrackedSpace) -> Int {
         sessions(for: space).filter { $0.state.isActive }.count
+    }
+
+    func attentionCount(for space: TrackedSpace) -> Int {
+        sessions(for: space).filter { $0.attention != .none }.count
     }
 
     func needsAttention(_ space: TrackedSpace) -> Bool {

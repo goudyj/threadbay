@@ -104,9 +104,7 @@
 "main.new_space" = "New Space";
 "main.no_spaces" = "No Spaces";
 "main.no_spaces_help" = "Create a space with the + button in the toolbar.";
-"main.agent_needs_input" = "An agent needs your input";
-"main.agent_working" = "An agent is working…";
-"main.active_agents" = "Active agents: %lld";
+"main.unread_notifications" = "Unread notifications: %lld";
 "main.delete_title" = "Delete “%@”?";
 "main.delete_folder" = "The folder %@ will be deleted.";
 "main.delete_folder_agents" = "The folder %@ will be deleted. Active agents: %lld. They will be stopped.";
@@ -134,7 +132,7 @@
 "menu.open_window" = "Open Window";
 "menu.settings" = "Settings…";
 "menu.quit" = "Quit ThreadBay";
-"menu.active_agents" = "%@ — %lld active";
+"menu.unread_notifications" = "%@ — %lld unread";
 "terminal.no_agent" = "No Agent";
 "terminal.no_agent_help" = "Launch an agent in this space to control it here.";
 "terminal.launch_another" = "Launch another agent in this space";

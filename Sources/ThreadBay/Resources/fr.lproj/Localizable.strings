@@ -104,9 +104,7 @@
 "main.new_space" = "Nouvel espace";
 "main.no_spaces" = "Aucun espace";
 "main.no_spaces_help" = "Créez un espace avec le bouton + de la barre d’outils.";
-"main.agent_needs_input" = "Un agent a besoin de vous";
-"main.agent_working" = "Un agent réfléchit…";
-"main.active_agents" = "Agents actifs : %lld";
+"main.unread_notifications" = "Notifications non lues : %lld";
 "main.delete_title" = "Supprimer « %@ » ?";
 "main.delete_folder" = "Le dossier %@ sera supprimé.";
 "main.delete_folder_agents" = "Le dossier %@ sera supprimé. Agents actifs : %lld. Ils seront arrêtés.";
@@ -134,7 +132,7 @@
 "menu.open_window" = "Ouvrir la fenêtre";
 "menu.settings" = "Réglages…";
 "menu.quit" = "Quitter ThreadBay";
-"menu.active_agents" = "%@ — %lld actifs";
+"menu.unread_notifications" = "%@ — %lld non lues";
 "terminal.no_agent" = "Aucun agent";
 "terminal.no_agent_help" = "Lancez un agent dans cet espace pour le piloter ici.";
 "terminal.launch_another" = "Lancer un autre agent dans cet espace";

@@ -55,11 +55,10 @@ struct MenuBarView: View {
             .keyboardShortcut("q")
     }
 
-    /// Suffixes the space name with its number of active agents.
+    /// Suffixes the space name only when it has unacknowledged alerts.
     private func menuTitle(for space: TrackedSpace) -> String {
-        let running = app.sessionManager.runningCount(for: space)
-        guard running > 0 else { return space.displayTitle }
-        let alert = app.sessionManager.needsAttention(space) ? " ⚠" : ""
-        return app.localized("menu.active_agents", space.displayTitle, running) + alert
+        let attentionCount = app.sessionManager.attentionCount(for: space)
+        guard attentionCount > 0 else { return space.displayTitle }
+        return app.localized("menu.unread_notifications", space.displayTitle, attentionCount)
     }
 }

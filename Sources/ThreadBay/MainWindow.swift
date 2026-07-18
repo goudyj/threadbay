@@ -305,8 +305,7 @@ private struct SidebarSpaceActions: View {
     }
 }
 
-/// Sidebar row: space name plus a badge with the number of active agents; the
-/// badge turns orange when an agent needs input.
+/// Sidebar row: space name plus the number of unacknowledged session alerts.
 private struct SidebarSpaceRow: View {
     @EnvironmentObject var app: AppState
     let space: TrackedSpace
@@ -330,15 +329,15 @@ private struct SidebarSpaceRow: View {
                 }
             }
             Spacer()
-            let running = manager.runningCount(for: space)
-            if running > 0 {
-                Text("\(running)")
+            let attentionCount = manager.attentionCount(for: space)
+            if attentionCount > 0 {
+                Text("\(attentionCount)")
                     .font(.caption2.bold())
                     .padding(.horizontal, 6)
                     .padding(.vertical, 1)
                     .background(Capsule().fill(badgeColor))
                     .foregroundStyle(.white)
-                    .help(badgeHelp(running: running))
+                    .help(app.localized("main.unread_notifications", attentionCount))
             }
             Menu {
                 SidebarSpaceActions(
@@ -357,17 +356,9 @@ private struct SidebarSpaceRow: View {
         }
     }
 
-    /// Orange (needs you) wins over indigo (working) over green (idle).
     private var badgeColor: Color {
         if manager.needsAttention(space) { return .orange }
-        if manager.isWorking(space) { return .indigo }
-        return .green.opacity(0.8)
-    }
-
-    private func badgeHelp(running: Int) -> String {
-        if manager.needsAttention(space) { return app.localized("main.agent_needs_input") }
-        if manager.isWorking(space) { return app.localized("main.agent_working") }
-        return app.localized("main.active_agents", running)
+        return .blue
     }
 }
 
