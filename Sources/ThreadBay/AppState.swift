@@ -52,6 +52,7 @@ final class AppState: ObservableObject {
     private let commitMessageService = CommitMessageService()
     private let githubService = GitHubService()
     private let openService = OpenService()
+    private var gitHeadMonitors: [String: GitHeadMonitor] = [:]
 
     init() {
         shortcuts = AppShortcutSettings.load()
@@ -98,6 +99,7 @@ final class AppState: ObservableObject {
             agents = library.agents
             commitGenerators = library.commitGenerators
             let currentSpaces = spaces
+            synchronizeGitHeadMonitors(with: currentSpaces)
             Task { await refreshGitStates(for: currentSpaces) }
         } catch {
             errorMessage = localizedError(error)
@@ -353,6 +355,47 @@ final class AppState: ObservableObject {
         }
         guard self.spaces.map(\.name) == spaces.map(\.name) else { return }
         gitStates = states
+    }
+
+    /// Keeps one event-driven HEAD watcher per Git space. Only the branch is
+    /// refreshed on an external checkout, so observing HEAD cannot cause a
+    /// feedback loop through `git status` updating the index.
+    private func synchronizeGitHeadMonitors(with spaces: [TrackedSpace]) {
+        let names = Set(spaces.lazy.filter(\.supportsGitActions).map(\.name))
+        let removedNames = gitHeadMonitors.keys.filter { !names.contains($0) }
+        for name in removedNames {
+            gitHeadMonitors.removeValue(forKey: name)?.stop()
+        }
+
+        for space in spaces where space.supportsGitActions && gitHeadMonitors[space.name] == nil {
+            let repository = URL(fileURLWithPath: space.destination)
+            let name = space.name
+            let monitor = GitHeadMonitor(repository: repository) { [weak self] in
+                Task { @MainActor [weak self] in
+                    await self?.refreshCurrentBranch(forSpaceNamed: name)
+                }
+            }
+            if monitor.start() {
+                gitHeadMonitors[name] = monitor
+            }
+        }
+    }
+
+    private func refreshCurrentBranch(forSpaceNamed name: String) async {
+        guard let space = spaces.first(where: { $0.name == name }),
+            space.supportsGitActions
+        else { return }
+
+        let git = gitService
+        let repository = URL(fileURLWithPath: space.destination)
+        let branch = await Task.detached { git.currentBranch(repo: repository) }.value
+        guard spaces.contains(where: { $0.name == name }) else { return }
+
+        let previous = gitStates[name]
+        gitStates[name] = GitRepositoryState(
+            currentBranch: branch,
+            baseBranch: previous?.baseBranch,
+            hasChanges: previous?.hasChanges ?? false)
     }
 
     // MARK: - GitHub queries (for the pull-request selector)
