@@ -3,7 +3,7 @@ import SwiftUI
 
 extension Binding where Value == Bool {
     /// Presents while `item` is non-nil; dismissal clears it.
-    init<T>(presence item: Binding<T?>) {
+    init<T: Sendable>(presence item: Binding<T?>) {
         self.init(
             get: { item.wrappedValue != nil },
             set: { if !$0 { item.wrappedValue = nil } })
