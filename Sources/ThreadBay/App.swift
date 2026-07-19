@@ -50,6 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
+        acknowledgeVisibleSession()
         Task { await appState.refreshGitStates() }
     }
 
@@ -88,9 +89,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
     }
+
+    private func acknowledgeVisibleSession() {
+        guard window?.isVisible == true, window?.isKeyWindow == true,
+            let space = appState.spaces.first(where: {
+                $0.name == appState.selectedSpaceName
+            })
+        else { return }
+        appState.sessionManager.acknowledgeCurrentSession(in: space)
+    }
 }
 
 extension AppDelegate: NSWindowDelegate {
+    func windowDidBecomeKey(_ notification: Notification) {
+        guard notification.object as? NSWindow === window else { return }
+        acknowledgeVisibleSession()
+    }
+
     func windowWillClose(_ notification: Notification) {
         // Back to a pure menu-bar app once the window is gone.
         NSApp.setActivationPolicy(.accessory)

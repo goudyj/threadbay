@@ -22,6 +22,23 @@ final class SessionManagerTests: XCTestCase {
         XCTAssertEqual(manager.attentionCount(for: space), 1)
     }
 
+    func testAcknowledgeCurrentSessionClearsOnlyVisibleTabAttention() {
+        let first = makeSession(space: space)
+        first.attention = .turnEnded
+        let selected = makeSession(space: space)
+        selected.attention = .needsInput
+        let otherSpace = makeSession(space: anotherSpace)
+        otherSpace.attention = .sessionEnded
+        let manager = SessionManager(sessions: [first, selected, otherSpace])
+        manager.selectedID = selected.id
+
+        manager.acknowledgeCurrentSession(in: space)
+
+        XCTAssertEqual(first.attention, .turnEnded)
+        XCTAssertEqual(selected.attention, .none)
+        XCTAssertEqual(otherSpace.attention, .sessionEnded)
+    }
+
     private func makeSession(space: TrackedSpace) -> AgentSession {
         AgentSession(
             space: space,

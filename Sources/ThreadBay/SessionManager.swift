@@ -170,6 +170,14 @@ final class SessionManager: ObservableObject {
         objectWillChange.send()
     }
 
+    func acknowledgeCurrentSession(in space: TrackedSpace) {
+        let visibleSessions = sessions(for: space)
+        guard let session = visibleSessions.first(where: { $0.id == selectedID })
+            ?? visibleSessions.first
+        else { return }
+        acknowledge(session)
+    }
+
     private func focus(_ session: AgentSession) {
         select(session.id)
         onFocusSession?(session)
