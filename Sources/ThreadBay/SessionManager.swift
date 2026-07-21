@@ -17,6 +17,7 @@ final class SessionManager: ObservableObject {
     let notifications = NotificationService()
     private var socketServer: EventSocketServer?
     private var terminalTheme: TerminalTheme = .system
+    private var terminalFont = TerminalFontSettings()
     private var language: AppLanguage = .system
 
     init(sessions: [AgentSession] = []) {
@@ -102,7 +103,8 @@ final class SessionManager: ObservableObject {
                 agent: agent,
                 currentBranch: currentBranch,
                 notifierPath: notifierPath,
-                theme: terminalTheme)
+                theme: terminalTheme,
+                font: terminalFont)
             session.onStateChange = { [weak self] session in
                 self?.sessionChanged(session)
             }
@@ -144,6 +146,12 @@ final class SessionManager: ObservableObject {
     func setTerminalTheme(_ theme: TerminalTheme) {
         terminalTheme = theme
         sessions.forEach { $0.applyTheme(theme) }
+        objectWillChange.send()
+    }
+
+    func setTerminalFont(_ font: TerminalFontSettings) {
+        terminalFont = font
+        sessions.forEach { $0.applyFont(font) }
         objectWillChange.send()
     }
 

@@ -82,6 +82,8 @@
 "settings.theme.system" = "跟随系统";
 "settings.theme.light" = "浅色";
 "settings.theme.dark" = "深色";
+"settings.font" = "字体";
+"settings.font_size" = "字号：%d pt";
 "settings.add" = "添加";
 "settings.choose_repo" = "选择源项目文件夹";
 "settings.agent_name" = "名称";

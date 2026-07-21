@@ -39,6 +39,16 @@ final class SessionManagerTests: XCTestCase {
         XCTAssertEqual(otherSpace.attention, .sessionEnded)
     }
 
+    func testTerminalFontUpdatesExistingSessions() {
+        let session = makeSession(space: space)
+        let manager = SessionManager(sessions: [session])
+
+        manager.setTerminalFont(TerminalFontSettings(family: "Monaco", size: 15))
+
+        XCTAssertEqual(session.terminalView.font.familyName, "Monaco")
+        XCTAssertEqual(session.terminalView.font.pointSize, 15)
+    }
+
     private func makeSession(space: TrackedSpace) -> AgentSession {
         AgentSession(
             space: space,

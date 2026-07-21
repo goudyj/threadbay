@@ -89,7 +89,8 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
         agent: AgentDefinition,
         currentBranch: String? = nil,
         notifierPath: String?,
-        theme: TerminalTheme = .system
+        theme: TerminalTheme = .system,
+        font: TerminalFontSettings = TerminalFontSettings()
     ) {
         self.space = space
         self.agent = agent
@@ -99,7 +100,7 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
             frame: NSRect(x: 0, y: 0, width: 800, height: 500))
         super.init()
         terminalView.processDelegate = self
-        terminalView.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        applyFont(font)
         // While mouse reporting is enabled SwiftTerm drops the local selection
         // on every output chunk, so nothing could ever be copied from a
         // streaming agent. Text selection matters more here than forwarding
@@ -173,6 +174,10 @@ final class AgentSession: NSObject, ObservableObject, Identifiable {
 
     func applyTheme(_ theme: TerminalTheme) {
         terminalView.applyTheme(theme)
+    }
+
+    func applyFont(_ settings: TerminalFontSettings) {
+        terminalView.font = settings.font
     }
 }
 

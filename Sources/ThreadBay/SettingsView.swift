@@ -103,6 +103,25 @@ struct SettingsView: View {
                         Text(app.localized("settings.theme.dark")).tag(TerminalTheme.dark)
                     }
                     .pickerStyle(.segmented)
+
+                    Picker(
+                        app.localized("settings.font"),
+                        selection: terminalFontFamilyBinding
+                    ) {
+                        ForEach(TerminalFontSettings.availableFamilies, id: \.self) { family in
+                            Text(family).tag(family)
+                        }
+                    }
+
+                    Stepper(
+                        value: terminalFontSizeBinding,
+                        in: TerminalFontSettings.sizeRange,
+                        step: 1
+                    ) {
+                        Text(app.localized(
+                            "settings.font_size",
+                            Int(app.terminalFont.size)))
+                    }
                 }
             }
 
@@ -126,6 +145,26 @@ struct SettingsView: View {
         Binding(
             get: { app.terminalTheme },
             set: { app.setTerminalTheme($0) })
+    }
+
+    private var terminalFontFamilyBinding: Binding<String> {
+        Binding(
+            get: { app.terminalFont.family },
+            set: {
+                app.setTerminalFont(TerminalFontSettings(
+                    family: $0,
+                    size: app.terminalFont.size))
+            })
+    }
+
+    private var terminalFontSizeBinding: Binding<Double> {
+        Binding(
+            get: { app.terminalFont.size },
+            set: {
+                app.setTerminalFont(TerminalFontSettings(
+                    family: app.terminalFont.family,
+                    size: $0))
+            })
     }
 
     private var languageBinding: Binding<AppLanguage> {

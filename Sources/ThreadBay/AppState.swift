@@ -24,6 +24,7 @@ final class AppState: ObservableObject {
     @Published var commitGenerators: [CommitGeneratorDefinition] = []
     @Published private(set) var shortcuts: AppShortcutSettings
     @Published private(set) var terminalTheme: TerminalTheme
+    @Published private(set) var terminalFont: TerminalFontSettings
     @Published private(set) var appLanguage: AppLanguage
     @Published var errorMessage: String?
     @Published var noticeMessage: String?
@@ -56,6 +57,7 @@ final class AppState: ObservableObject {
 
     init() {
         shortcuts = AppShortcutSettings.load()
+        terminalFont = TerminalFontSettings.load()
         appLanguage = AppLanguage(
             rawValue: UserDefaults.standard.string(forKey: Self.appLanguageKey) ?? ""
         ) ?? .system
@@ -65,6 +67,7 @@ final class AppState: ObservableObject {
         reload()
         sessionManager.setLanguage(appLanguage)
         sessionManager.setTerminalTheme(terminalTheme)
+        sessionManager.setTerminalFont(terminalFont)
         sessionManager.onError = { [weak self] error in
             self?.errorMessage = self?.localizedError(error)
         }
@@ -596,6 +599,12 @@ final class AppState: ObservableObject {
         terminalTheme = theme
         UserDefaults.standard.set(theme.rawValue, forKey: Self.terminalThemeKey)
         sessionManager.setTerminalTheme(theme)
+    }
+
+    func setTerminalFont(_ font: TerminalFontSettings) {
+        terminalFont = font
+        font.save()
+        sessionManager.setTerminalFont(font)
     }
 
     func setAppLanguage(_ language: AppLanguage) {

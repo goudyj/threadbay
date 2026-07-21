@@ -82,6 +82,8 @@
 "settings.theme.system" = "System";
 "settings.theme.light" = "Light";
 "settings.theme.dark" = "Dark";
+"settings.font" = "Font";
+"settings.font_size" = "Size: %d pt";
 "settings.add" = "Add";
 "settings.choose_repo" = "Choose the source project folder";
 "settings.agent_name" = "Name";
