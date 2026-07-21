@@ -253,6 +253,7 @@ class SessionTerminalView: LocalProcessTerminalView {
     /// `scrollWheel` is not open, so the wheel is intercepted with a local
     /// event monitor instead of an override.
     private var scrollMonitor: Any?
+    private var reportedScrollAccumulator: CGFloat = 0
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -272,7 +273,7 @@ class SessionTerminalView: LocalProcessTerminalView {
 
     /// Returns true when the event was consumed as a mouse report.
     private func forwardScrollIfReported(_ event: NSEvent) -> Bool {
-        guard event.window === window, event.deltaY != 0,
+        guard event.window === window, event.scrollingDeltaY != 0,
             !event.modifierFlags.contains(.shift)
         else { return false }
         let terminal = getTerminal()
@@ -284,24 +285,42 @@ class SessionTerminalView: LocalProcessTerminalView {
         let row = max(0, min(terminal.rows - 1,
             Int((bounds.height - point.y) / bounds.height * CGFloat(terminal.rows))))
         let flags = terminal.encodeButton(
-            button: event.deltaY > 0 ? 4 : 5,
+            button: event.scrollingDeltaY > 0 ? 4 : 5,
             release: false,
             shift: false,
             meta: event.modifierFlags.contains(.option),
             control: event.modifierFlags.contains(.control))
-        for _ in 0..<Self.scrollLines(for: event.deltaY) {
+        let cellHeight = bounds.height / CGFloat(max(terminal.rows, 1))
+        let lines = Self.scrollLineDelta(
+            for: event.scrollingDeltaY,
+            precise: event.hasPreciseScrollingDeltas,
+            cellHeight: cellHeight,
+            accumulator: &reportedScrollAccumulator)
+        for _ in 0..<abs(lines) {
             terminal.sendEvent(buttonFlags: flags, x: col, y: row)
         }
         return true
     }
 
-    /// Same velocity curve as SwiftTerm's own mouse-reporting branch.
-    private static func scrollLines(for deltaY: CGFloat) -> Int {
-        let delta = Int(abs(deltaY))
-        if delta > 9 { return 20 }
-        if delta > 5 { return 10 }
-        if delta > 1 { return 3 }
-        return 1
+    /// Mirrors SwiftTerm's line-accurate wheel handling for the mouse-reporting
+    /// path that ThreadBay intercepts to preserve local text selection.
+    static func scrollLineDelta(
+        for deltaY: CGFloat,
+        precise: Bool,
+        cellHeight: CGFloat,
+        accumulator: inout CGFloat
+    ) -> Int {
+        guard deltaY != 0, cellHeight > 0 else { return 0 }
+        if precise {
+            accumulator += deltaY
+            let lines = Int(accumulator / cellHeight)
+            accumulator -= CGFloat(lines) * cellHeight
+            return lines
+        }
+
+        accumulator = 0
+        let rounded = Int(deltaY.rounded())
+        return rounded != 0 ? rounded : (deltaY > 0 ? 1 : -1)
     }
 
     /// SwiftTerm's copy replaces the clipboard even when the selection is

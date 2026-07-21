@@ -55,6 +55,37 @@ final class SessionTerminalViewTests: XCTestCase {
         XCTAssertTrue(terminal.sentBytes.isEmpty)
     }
 
+    func testMouseWheelDeltaDoesNotAccelerateToPageJump() {
+        var accumulator: CGFloat = 0
+
+        let lines = SessionTerminalView.scrollLineDelta(
+            for: 10,
+            precise: false,
+            cellHeight: 16,
+            accumulator: &accumulator)
+
+        XCTAssertEqual(lines, 10)
+    }
+
+    func testPreciseScrollDeltasAccumulateByTerminalLine() {
+        var accumulator: CGFloat = 0
+
+        let firstLines = SessionTerminalView.scrollLineDelta(
+            for: 7,
+            precise: true,
+            cellHeight: 16,
+            accumulator: &accumulator)
+        let secondLines = SessionTerminalView.scrollLineDelta(
+            for: 9,
+            precise: true,
+            cellHeight: 16,
+            accumulator: &accumulator)
+
+        XCTAssertEqual(firstLines, 0)
+        XCTAssertEqual(secondLines, 1)
+        XCTAssertEqual(accumulator, 0)
+    }
+
     private func keyEvent(
         keyCode: Int,
         modifiers: NSEvent.ModifierFlags
