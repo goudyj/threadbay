@@ -1,3 +1,4 @@
+import AppKit
 import ThreadBayCore
 import SwiftUI
 
@@ -7,6 +8,21 @@ extension Binding where Value == Bool {
         self.init(
             get: { item.wrappedValue != nil },
             set: { if !$0 { item.wrappedValue = nil } })
+    }
+}
+
+private struct SelectAllTextOnAppear: ViewModifier {
+    @FocusState private var isFocused: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .focused($isFocused)
+            .onAppear {
+                isFocused = true
+                DispatchQueue.main.async {
+                    NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
+                }
+            }
     }
 }
 
@@ -22,6 +38,7 @@ private struct RenameSpaceAlert: ViewModifier {
             isPresented: Binding(presence: $space)
         ) {
             TextField(app.localized("management.display_name"), text: $text)
+                .selectAllTextOnAppear()
             Button(app.localized("common.cancel"), role: .cancel) { space = nil }
             Button(app.localized("management.rename")) {
                 if let space { app.rename(space, displayName: text) }
@@ -57,6 +74,10 @@ private struct ConfirmDeleteSpace: ViewModifier {
 }
 
 extension View {
+    func selectAllTextOnAppear() -> some View {
+        modifier(SelectAllTextOnAppear())
+    }
+
     func renameSpaceAlert(space: Binding<TrackedSpace?>, text: Binding<String>) -> some View {
         modifier(RenameSpaceAlert(space: space, text: text))
     }

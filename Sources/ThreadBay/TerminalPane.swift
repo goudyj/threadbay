@@ -52,6 +52,7 @@ struct TerminalPane: View {
             isPresented: Binding(presence: $renameSession)
         ) {
             TextField(app.localized("terminal.tab_name"), text: $renameText)
+                .selectAllTextOnAppear()
             Button(app.localized("common.cancel"), role: .cancel) { renameSession = nil }
             Button(app.localized("management.rename")) {
                 renameSession?.customName = renameText
