@@ -8,6 +8,7 @@ cd "$(dirname "$0")/.."
 
 EXECUTABLE_NAME="ThreadBay"
 HELPER_NAME="ThreadBayNotify"
+ICON_SOURCE="Assets/AppIcon.icns"
 VERSION="0.1.0"
 CONFIGURATION="${1:-release}"
 PROFILE="${2:-production}"
@@ -61,6 +62,8 @@ for resource_bundle in "${BIN_DIR}"/*.bundle; do
     cp -R "${resource_bundle}" "${APP_DIR}/Contents/Resources/"
 done
 
+cp "${ICON_SOURCE}" "${APP_DIR}/Contents/Resources/ThreadBay.icns"
+
 cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -74,6 +77,8 @@ cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
     <string>${BUNDLE_ID}</string>
     <key>CFBundleExecutable</key>
     <string>${EXECUTABLE_NAME}</string>
+    <key>CFBundleIconFile</key>
+    <string>ThreadBay.icns</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
