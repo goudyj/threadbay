@@ -101,6 +101,10 @@
 "settings.shortcut_shell" = "Lancer Shell";
 "settings.shortcut_conflict" = "Le raccourci %@ est déjà utilisé.";
 "main.all_spaces" = "Tous les espaces";
+"main.pinned_spaces" = "Épinglés";
+"main.pin_space" = "Épingler l’espace";
+"main.unpin_space" = "Désépingler l’espace";
+"main.pinned_space" = "Espace épinglé";
 "main.error" = "Erreur";
 "main.warning" = "Avertissement";
 "main.new_space" = "Nouvel espace";

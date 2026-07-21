@@ -101,6 +101,10 @@
 "settings.shortcut_shell" = "Launch Shell";
 "settings.shortcut_conflict" = "The shortcut %@ is already in use.";
 "main.all_spaces" = "All Spaces";
+"main.pinned_spaces" = "Pinned";
+"main.pin_space" = "Pin Space";
+"main.unpin_space" = "Unpin Space";
+"main.pinned_space" = "Pinned space";
 "main.error" = "Error";
 "main.warning" = "Warning";
 "main.new_space" = "New Space";

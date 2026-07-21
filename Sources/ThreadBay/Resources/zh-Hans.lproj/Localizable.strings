@@ -101,6 +101,10 @@
 "settings.shortcut_shell" = "启动 Shell";
 "settings.shortcut_conflict" = "快捷键 %@ 已被使用。";
 "main.all_spaces" = "所有空间";
+"main.pinned_spaces" = "已固定";
+"main.pin_space" = "固定空间";
+"main.unpin_space" = "取消固定空间";
+"main.pinned_space" = "已固定的空间";
 "main.error" = "错误";
 "main.warning" = "警告";
 "main.new_space" = "新建空间";

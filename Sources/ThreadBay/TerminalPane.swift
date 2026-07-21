@@ -22,10 +22,9 @@ struct TerminalPane: View {
         manager.sessions(for: space)
     }
 
-    /// The globally selected session when it belongs to this space, else the
-    /// first session of the space.
+    /// The last selected session in this space, else its first session.
     private var current: AgentSession? {
-        sessions.first { $0.id == manager.selectedID } ?? sessions.first
+        manager.selectedSession(for: space)
     }
 
     var body: some View {

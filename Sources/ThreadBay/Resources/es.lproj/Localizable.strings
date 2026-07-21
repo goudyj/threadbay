@@ -101,6 +101,10 @@
 "settings.shortcut_shell" = "Iniciar Shell";
 "settings.shortcut_conflict" = "El atajo %@ ya está en uso.";
 "main.all_spaces" = "Todos los espacios";
+"main.pinned_spaces" = "Fijados";
+"main.pin_space" = "Fijar espacio";
+"main.unpin_space" = "Desfijar espacio";
+"main.pinned_space" = "Espacio fijado";
 "main.error" = "Error";
 "main.warning" = "Advertencia";
 "main.new_space" = "Nuevo espacio";

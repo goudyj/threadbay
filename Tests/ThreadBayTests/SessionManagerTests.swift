@@ -49,6 +49,34 @@ final class SessionManagerTests: XCTestCase {
         XCTAssertEqual(session.terminalView.font.pointSize, 15)
     }
 
+    func testSelectedSessionIsRememberedForEachSpace() {
+        let first = makeSession(space: space)
+        let selectedInFirstSpace = makeSession(space: space)
+        let otherFirst = makeSession(space: anotherSpace)
+        let selectedInOtherSpace = makeSession(space: anotherSpace)
+        let manager = SessionManager(
+            sessions: [first, selectedInFirstSpace, otherFirst, selectedInOtherSpace])
+
+        manager.select(selectedInFirstSpace.id)
+        manager.select(selectedInOtherSpace.id)
+
+        XCTAssertEqual(manager.selectedSession(for: space)?.id, selectedInFirstSpace.id)
+        XCTAssertEqual(manager.selectedSession(for: anotherSpace)?.id, selectedInOtherSpace.id)
+    }
+
+    func testClosingSelectedSessionUsesAnotherTabFromTheSameSpace() {
+        let remaining = makeSession(space: space)
+        let selected = makeSession(space: space)
+        let otherSpace = makeSession(space: anotherSpace)
+        let manager = SessionManager(sessions: [remaining, selected, otherSpace])
+        manager.select(selected.id)
+
+        manager.close(selected)
+
+        XCTAssertEqual(manager.selectedSession(for: space)?.id, remaining.id)
+        XCTAssertNotEqual(manager.selectedSession(for: space)?.id, otherSpace.id)
+    }
+
     private func makeSession(space: TrackedSpace) -> AgentSession {
         AgentSession(
             space: space,

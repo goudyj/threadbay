@@ -39,6 +39,8 @@ final class AppState: ObservableObject {
     @Published var selectedSpaceName = ""
     @Published var pendingCloseSessionID: UUID?
 
+    @Published private var spaceListPreferences: SpaceListPreferences
+
     /// Installed by the app delegate; brings the main window to the front.
     var onShowWindow: (@MainActor () -> Void)?
 
@@ -58,6 +60,7 @@ final class AppState: ObservableObject {
     init() {
         shortcuts = AppShortcutSettings.load()
         terminalFont = TerminalFontSettings.load()
+        spaceListPreferences = SpaceListPreferences.load()
         appLanguage = AppLanguage(
             rawValue: UserDefaults.standard.string(forKey: Self.appLanguageKey) ?? ""
         ) ?? .system
@@ -77,19 +80,30 @@ final class AppState: ObservableObject {
         }
     }
 
-    struct ProjectGroup: Identifiable {
+    struct SpaceGroup: Identifiable {
         let id: String
+        let title: String
         let spaces: [TrackedSpace]
     }
 
-    var groups: [ProjectGroup] {
-        Dictionary(grouping: spaces, by: \.projectName)
+    var groups: [SpaceGroup] {
+        var result: [SpaceGroup] = []
+        let pinned = orderedSpaces(spaces.filter { isPinned($0) })
+        if !pinned.isEmpty {
+            result.append(SpaceGroup(
+                id: "pinned",
+                title: localized("main.pinned_spaces"),
+                spaces: pinned))
+        }
+
+        result.append(contentsOf: Dictionary(
+            grouping: orderedSpaces(spaces.filter { !isPinned($0) }),
+            by: \.projectName)
             .map {
-                ProjectGroup(
-                    id: $0.key,
-                    spaces: $0.value.sorted { $0.displayTitle < $1.displayTitle })
+                SpaceGroup(id: "project:\($0.key)", title: $0.key, spaces: $0.value)
             }
-            .sorted { $0.id < $1.id }
+            .sorted { $0.title < $1.title })
+        return result
     }
 
     // MARK: - Loading
@@ -98,6 +112,11 @@ final class AppState: ObservableObject {
         do {
             settings = try Settings.load()
             spaces = try SpaceStore.load().spaces
+            let defaultOrder = spaces.sorted {
+                ($0.projectName, $0.displayTitle) < ($1.projectName, $1.displayTitle)
+            }.map(\.name)
+            spaceListPreferences.reconcile(validSpaceNames: defaultOrder)
+            spaceListPreferences.save()
             let library = try AgentLibrary.load()
             agents = library.agents
             commitGenerators = library.commitGenerators
@@ -434,8 +453,9 @@ final class AppState: ObservableObject {
             try service.create(
                 project: project, creation: creation, displayName: displayName)
         }
-        guard created != nil else { return false }
+        guard let created else { return false }
         reload()
+        pendingSelectSpace = created.name
         return true
     }
 
@@ -489,6 +509,31 @@ final class AppState: ObservableObject {
             }
         } catch {
             errorMessage = localizedError(error)
+        }
+    }
+
+    func isPinned(_ space: TrackedSpace) -> Bool {
+        spaceListPreferences.isPinned(space.name)
+    }
+
+    func setPinned(_ pinned: Bool, space: TrackedSpace) {
+        spaceListPreferences.setPinned(pinned, name: space.name)
+        spaceListPreferences.save()
+    }
+
+    func moveSpaces(_ spaces: [TrackedSpace], fromOffsets: IndexSet, toOffset: Int) {
+        spaceListPreferences.move(
+            names: spaces.map(\.name), fromOffsets: fromOffsets, toOffset: toOffset)
+        spaceListPreferences.save()
+    }
+
+    private func orderedSpaces(_ spaces: [TrackedSpace]) -> [TrackedSpace] {
+        let order = Dictionary(
+            uniqueKeysWithValues: spaceListPreferences.orderedSpaceNames.enumerated().map {
+                ($0.element, $0.offset)
+            })
+        return spaces.sorted {
+            order[$0.name, default: .max] < order[$1.name, default: .max]
         }
     }
 
@@ -583,9 +628,7 @@ final class AppState: ObservableObject {
 
     private func requestCloseActiveSession() {
         guard let space = spaces.first(where: { $0.name == selectedSpaceName }) else { return }
-        let sessions = sessionManager.sessions(for: space)
-        let active = sessions.first { $0.id == sessionManager.selectedID } ?? sessions.first
-        pendingCloseSessionID = active?.id
+        pendingCloseSessionID = sessionManager.selectedSession(for: space)?.id
     }
 
     private func launchAgent(kind: AgentDefinition.Kind) {

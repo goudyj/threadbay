@@ -36,7 +36,7 @@ struct MainWindow: View {
                     Label(app.localized("main.all_spaces"), systemImage: "square.stack.3d.up")
                         .tag("")
                     ForEach(app.groups) { group in
-                        Section(group.id) {
+                        Section(group.title) {
                             ForEach(group.spaces) { space in
                                 SidebarSpaceRow(
                                     space: space,
@@ -60,6 +60,12 @@ struct MainWindow: View {
                                             onRename: { presentRename(for: space) },
                                             onDelete: { spaceToDelete = space })
                                     }
+                            }
+                            .onMove { offsets, destination in
+                                app.moveSpaces(
+                                    group.spaces,
+                                    fromOffsets: offsets,
+                                    toOffset: destination)
                             }
                         }
                     }
@@ -188,9 +194,15 @@ struct MainWindow: View {
         } else {
             List {
                 ForEach(app.groups) { group in
-                    Section(group.id) {
+                    Section(group.title) {
                         ForEach(group.spaces) { space in
                             SpaceRow(space: space)
+                        }
+                        .onMove { offsets, destination in
+                            app.moveSpaces(
+                                group.spaces,
+                                fromOffsets: offsets,
+                                toOffset: destination)
                         }
                     }
                 }
@@ -282,6 +294,14 @@ private struct SidebarSpaceActions: View {
     let onDelete: () -> Void
 
     var body: some View {
+        Button {
+            app.setPinned(!app.isPinned(space), space: space)
+        } label: {
+            Label(
+                app.localized(app.isPinned(space) ? "main.unpin_space" : "main.pin_space"),
+                systemImage: app.isPinned(space) ? "pin.slash" : "pin")
+        }
+        Divider()
         Button(action: onRename) {
             Label(app.localized("management.rename"), systemImage: "pencil")
         }
@@ -338,6 +358,11 @@ private struct SidebarSpaceRow: View {
                     .background(Capsule().fill(badgeColor))
                     .foregroundStyle(.white)
                     .help(app.localized("main.unread_notifications", attentionCount))
+            }
+            if app.isPinned(space) {
+                Image(systemName: "pin.fill")
+                    .foregroundStyle(.tint)
+                    .help(app.localized("main.pinned_space"))
             }
             Menu {
                 SidebarSpaceActions(

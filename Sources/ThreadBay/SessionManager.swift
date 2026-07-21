@@ -8,6 +8,7 @@ import ThreadBayCore
 final class SessionManager: ObservableObject {
     @Published private(set) var sessions: [AgentSession]
     @Published var selectedID: UUID?
+    private var selectedIDsBySpace: [String: UUID] = [:]
 
     /// Installed by AppState to surface launch errors in the UI.
     var onError: ((Error) -> Void)?
@@ -26,6 +27,16 @@ final class SessionManager: ObservableObject {
 
     func sessions(for space: TrackedSpace) -> [AgentSession] {
         sessions.filter { $0.space.name == space.name }
+    }
+
+    func selectedSession(for space: TrackedSpace) -> AgentSession? {
+        let visibleSessions = sessions(for: space)
+        if let id = selectedIDsBySpace[space.name],
+            let selected = visibleSessions.first(where: { $0.id == id })
+        {
+            return selected
+        }
+        return visibleSessions.first(where: { $0.id == selectedID }) ?? visibleSessions.first
     }
 
     func runningCount(for space: TrackedSpace) -> Int {
@@ -120,8 +131,13 @@ final class SessionManager: ObservableObject {
     func close(_ session: AgentSession) {
         session.stop()
         sessions.removeAll { $0.id == session.id }
+        if selectedIDsBySpace[session.space.name] == session.id {
+            selectedIDsBySpace[session.space.name] = sessions.first {
+                $0.space.name == session.space.name
+            }?.id
+        }
         if selectedID == session.id {
-            selectedID = sessions.first(where: { $0.space.name == session.space.name })?.id
+            selectedID = selectedIDsBySpace[session.space.name]
         }
     }
 
@@ -164,6 +180,7 @@ final class SessionManager: ObservableObject {
     func select(_ id: UUID?) {
         selectedID = id
         if let session = sessions.first(where: { $0.id == id }) {
+            selectedIDsBySpace[session.space.name] = session.id
             acknowledge(session)
         }
         // Views observing the manager (sidebar badges) read session state.
@@ -179,10 +196,7 @@ final class SessionManager: ObservableObject {
     }
 
     func acknowledgeCurrentSession(in space: TrackedSpace) {
-        let visibleSessions = sessions(for: space)
-        guard let session = visibleSessions.first(where: { $0.id == selectedID })
-            ?? visibleSessions.first
-        else { return }
+        guard let session = selectedSession(for: space) else { return }
         acknowledge(session)
     }
 
